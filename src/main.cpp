@@ -12,6 +12,7 @@
 //   Setas      Olhar (yaw / pitch)
 //   + / -      Aumentar / diminuir velocidade
 //   R          Reset da câmera
+//   L          Ativar/desativar marcadores dos holofotes
 //   ESC        Sair
 //
 // Compilar (macOS):
@@ -127,11 +128,35 @@ static bool   g_specialKeys[256]  = {false};
 // Tempo do último frame, pra calcular delta
 static int    g_lastMs = 0;
 
+// Marcadores visuais dos refletores. As luzes em si ficam sempre ligadas para
+// a cena assumir uma noite de jogo, sem alternância dia/noite.
+static bool   g_showLightMarkers = true;
+
+// Quatro torres/holofotes nos cantos do estádio, apontando para o centro do
+// campo. Os valores ficam em coordenadas de mundo do modelo importado.
+static Vec3   g_fieldCenter      = {0.0f, -4.7f, 0.0f};
+static Vec3   g_spotPositions[4] = {
+    {-13.6f, 5.8f, -14.4f},
+    { 13.6f, 5.8f, -14.4f},
+    {-13.6f, 5.8f,  14.4f},
+    { 13.6f, 5.8f,  14.4f}
+};
+
 // =============================================================================
 // HELPERS
 // =============================================================================
 
 inline float radians(float deg) { return deg * 3.14159265358979f / 180.0f; }
+
+static Vec3 subtract(const Vec3& a, const Vec3& b) {
+    return {a.x - b.x, a.y - b.y, a.z - b.z};
+}
+
+static Vec3 normalize(const Vec3& v) {
+    float len = sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
+    if (len <= 0.00001f) return {0.0f, -1.0f, 0.0f};
+    return {v.x / len, v.y / len, v.z / len};
+}
 
 // Extrai o diretório de um path. Ex: "assets/models/stadium.obj" -> "assets/models"
 static std::string dirname(const std::string& path) {
@@ -387,16 +412,36 @@ static void drawMesh(const Mesh& mesh) {
 
         if (mat) {
             // Convertendo Vec3 -> array com alpha
-            GLfloat kd[4] = { mat->Kd.x, mat->Kd.y, mat->Kd.z, 1.0f };
-            // Ambient mais sutil pra evitar washout
-            GLfloat ka[4] = { mat->Ka.x * 0.25f, mat->Ka.y * 0.25f, mat->Ka.z * 0.25f, 1.0f };
-            GLfloat ks[4] = { mat->Ks.x, mat->Ks.y, mat->Ks.z, 1.0f };
+            // Diffuse próximo do material original: GL_MODULATE preserva a
+            // textura, enquanto os holofotes fortes fazem a cena clarear.
+            GLfloat kd[4] = {
+                std::min(mat->Kd.x * 1.05f, 1.0f),
+                std::min(mat->Kd.y * 1.05f, 1.0f),
+                std::min(mat->Kd.z * 1.05f, 1.0f),
+                1.0f
+            };
+            // Ambient moderado: a cena é noturna, mas estádio real tem bastante
+            // luz rebatida internamente.
+            GLfloat ka[4] = {
+                std::min(mat->Ka.x * 0.24f, 0.24f),
+                std::min(mat->Ka.y * 0.24f, 0.24f),
+                std::min(mat->Ka.z * 0.28f, 0.28f),
+                1.0f
+            };
+            // Specular sutil para assentos/metais pegarem brilho dos holofotes
+            // sem transformar a textura em uma superfície branca.
+            GLfloat ks[4] = {
+                std::min(mat->Ks.x * 0.45f + 0.06f, 0.35f),
+                std::min(mat->Ks.y * 0.45f + 0.06f, 0.35f),
+                std::min(mat->Ks.z * 0.45f + 0.06f, 0.35f),
+                1.0f
+            };
             glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE,  kd);
             glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT,  ka);
             glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, ks);
             // GL_SHININESS espera 0..128 (o MTL pode chegar a 1000)
             glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS,
-                        std::min(mat->Ns * 0.128f, 128.0f));
+                        std::min(std::max(mat->Ns * 0.10f, 12.0f), 96.0f));
 
             if (mat->texID) {
                 glEnable(GL_TEXTURE_2D);
@@ -427,6 +472,59 @@ static void drawMesh(const Mesh& mesh) {
     }
 }
 
+static void drawLightMarkers() {
+    if (!g_showLightMarkers) return;
+
+    // Marcadores são apenas debug visual: desenhamos sem iluminação/textura para
+    // aparecerem sempre como pequenas esferas emissivas nos cantos do estádio.
+    glDisable(GL_TEXTURE_2D);
+    glDisable(GL_LIGHTING);
+
+    glColor3f(1.0f, 0.88f, 0.35f);
+    for (int i = 0; i < 4; ++i) {
+        glPushMatrix();
+        glTranslatef(g_spotPositions[i].x, g_spotPositions[i].y, g_spotPositions[i].z);
+        glutSolidSphere(0.7, 16, 12);
+        glPopMatrix();
+    }
+
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glEnable(GL_LIGHTING);
+}
+
+static void drawSpotlightBeams() {
+    // O fixed pipeline ilumina superfícies, mas não desenha o volume de luz.
+    // Estes feixes translúcidos são uma ajuda visual para mostrar que a luz sai
+    // dos refletores e abre em direção ao campo.
+    glDisable(GL_TEXTURE_2D);
+    glDisable(GL_LIGHTING);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+    glDepthMask(GL_FALSE);
+
+    const float radius = 4.4f;
+    for (int i = 0; i < 4; ++i) {
+        const Vec3& p = g_spotPositions[i];
+
+        glBegin(GL_TRIANGLE_FAN);
+        glColor4f(1.0f, 0.92f, 0.68f, 0.18f);
+        glVertex3f(p.x, p.y, p.z);
+        glColor4f(1.0f, 0.92f, 0.68f, 0.015f);
+        for (int s = 0; s <= 18; ++s) {
+            float a = (2.0f * 3.14159265358979f * s) / 18.0f;
+            glVertex3f(g_fieldCenter.x + cosf(a) * radius,
+                       g_fieldCenter.y + 0.25f,
+                       g_fieldCenter.z + sinf(a) * radius);
+        }
+        glEnd();
+    }
+
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+    glEnable(GL_LIGHTING);
+}
+
 // =============================================================================
 // CÂMERA + INPUT
 // =============================================================================
@@ -453,6 +551,7 @@ static void keyboardDown(unsigned char key, int, int) {
     if (key == 'r' || key == 'R') resetCamera();
     if (key == '+' || key == '=') g_moveSpeed *= 1.25f;
     if (key == '-' || key == '_') g_moveSpeed /= 1.25f;
+    if (key == 'l' || key == 'L') g_showLightMarkers = !g_showLightMarkers;
 }
 static void keyboardUp(unsigned char key, int, int)   { g_keys[key] = false; }
 static void specialDown(int key, int, int)            { g_specialKeys[key] = true; }
@@ -490,9 +589,56 @@ static void reshape(int w, int h) {
     glViewport(0, 0, g_winW, g_winH);
 }
 
+static void configureLighting() {
+    // Luz ambiente global: é a parcela mínima que ilumina tudo igualmente.
+    // Para uma noite de estádio real, ela não pode ser preta: há muita luz
+    // rebatida no gramado, arquibancadas e cobertura.
+    GLfloat globalNight[4] = {0.115f, 0.125f, 0.155f, 1.0f};
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, globalNight);
+
+    // GL_LIGHT0 como luz direcional: w=0 em GL_POSITION significa que a luz
+    // vem de uma direção infinita. Aqui ela é só um preenchimento frio e fraco;
+    // a iluminação principal vem dos holofotes nos cantos.
+    glEnable(GL_LIGHT0);
+    GLfloat dirPos[4]  = {-0.25f, 0.80f, 0.20f, 0.0f};
+    GLfloat dirAmb[4]  = { 0.025f, 0.030f, 0.045f, 1.0f};
+    GLfloat dirDif[4]  = { 0.135f, 0.155f, 0.220f, 1.0f};
+    GLfloat dirSpec[4] = { 0.090f, 0.100f, 0.135f, 1.0f};
+    glLightfv(GL_LIGHT0, GL_POSITION, dirPos);
+    glLightfv(GL_LIGHT0, GL_AMBIENT,  dirAmb);
+    glLightfv(GL_LIGHT0, GL_DIFFUSE,  dirDif);
+    glLightfv(GL_LIGHT0, GL_SPECULAR, dirSpec);
+
+    // GL_LIGHT1..GL_LIGHT4 como holofotes: cada luz tem posição real (w=1),
+    // direção para o centro do campo, cone controlado por CUTOFF/EXPONENT e
+    // atenuação para perder força com a distância.
+    const GLenum ids[4] = {GL_LIGHT1, GL_LIGHT2, GL_LIGHT3, GL_LIGHT4};
+    for (int i = 0; i < 4; ++i) {
+        glEnable(ids[i]);
+
+        Vec3 dir = normalize(subtract(g_fieldCenter, g_spotPositions[i]));
+        GLfloat pos[4] = {g_spotPositions[i].x, g_spotPositions[i].y, g_spotPositions[i].z, 1.0f};
+        GLfloat spotDir[3] = {dir.x, dir.y, dir.z};
+        GLfloat amb[4]  = {0.018f, 0.016f, 0.012f, 1.0f};
+        GLfloat dif[4]  = {1.35f, 1.25f, 1.02f, 1.0f};
+        GLfloat spec[4] = {0.85f, 0.78f, 0.62f, 1.0f};
+
+        glLightfv(ids[i], GL_POSITION, pos);
+        glLightfv(ids[i], GL_SPOT_DIRECTION, spotDir);
+        glLightfv(ids[i], GL_AMBIENT,  amb);
+        glLightfv(ids[i], GL_DIFFUSE,  dif);
+        glLightfv(ids[i], GL_SPECULAR, spec);
+        glLightf(ids[i], GL_SPOT_CUTOFF,   46.0f);
+        glLightf(ids[i], GL_SPOT_EXPONENT, 9.0f);
+        glLightf(ids[i], GL_CONSTANT_ATTENUATION,  1.0f);
+        glLightf(ids[i], GL_LINEAR_ATTENUATION,    0.006f);
+        glLightf(ids[i], GL_QUADRATIC_ATTENUATION, 0.00035f);
+    }
+}
+
 static void display() {
-    // Background cinza-escuro (ambiente neutro)
-    glClearColor(0.10f, 0.12f, 0.15f, 1.0f);
+    // Céu noturno fixo: escuro, mas levemente azulado.
+    glClearColor(0.020f, 0.030f, 0.070f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // PROJECTION
@@ -511,12 +657,13 @@ static void display() {
               g_camPos.x + fwd.x, g_camPos.y + fwd.y, g_camPos.z + fwd.z,
               0.0, 1.0, 0.0);
 
-    // Reposicionar luz DEPOIS de glLoadIdentity da câmera, pra luz ficar
-    // fixa em coordenadas de mundo (e não andar junto com a câmera).
-    GLfloat lightDir[4] = { 0.4f, 1.0f, 0.3f, 0.0f };  // w=0 → direcional (sol)
-    glLightfv(GL_LIGHT0, GL_POSITION, lightDir);
+    // Luzes são posicionadas depois da câmera, então ficam em coordenadas de
+    // mundo e não "grudam" no observador.
+    configureLighting();
 
     drawMesh(g_mesh);
+    drawSpotlightBeams();
+    drawLightMarkers();
 
     glutSwapBuffers();
 }
@@ -540,19 +687,10 @@ static void initGL() {
     glDepthFunc(GL_LESS);
 
     glEnable(GL_LIGHTING);
-    glEnable(GL_LIGHT0);
 
-    // Ambient + diffuse da luz 0
-    GLfloat amb[4] = { 0.30f, 0.30f, 0.35f, 1.0f };
-    GLfloat dif[4] = { 0.95f, 0.92f, 0.85f, 1.0f };
-    GLfloat spc[4] = { 0.30f, 0.30f, 0.30f, 1.0f };
-    glLightfv(GL_LIGHT0, GL_AMBIENT,  amb);
-    glLightfv(GL_LIGHT0, GL_DIFFUSE,  dif);
-    glLightfv(GL_LIGHT0, GL_SPECULAR, spc);
-
-    // Modelo de iluminação
-    GLfloat globalAmb[4] = { 0.15f, 0.15f, 0.18f, 1.0f };
-    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, globalAmb);
+    // Modelo de iluminação do fixed pipeline. A intensidade global e as
+    // posições das luzes são atualizadas em configureLighting(), depois que a
+    // câmera já foi aplicada.
     glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
     glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, GL_TRUE);
 
@@ -599,6 +737,7 @@ int main(int argc, char** argv) {
               << "  setas  olhar\n"
               << "  +/-    velocidade\n"
               << "  R      reset\n"
+              << "  L      liga/desliga marcadores dos holofotes\n"
               << "  ESC    sair\n\n";
 
     glutMainLoop();
