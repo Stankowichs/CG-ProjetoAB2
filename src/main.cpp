@@ -112,17 +112,14 @@ struct Mesh {
 // =============================================================================
 
 static Mesh   g_stadiumMesh;
-static Mesh   g_playerMesh;
-static Mesh   g_goalkeeperMesh;
+static Mesh   g_playerMeshes[8];
 static int    g_winW = 1280;
 static int    g_winH = 800;
 
 // Câmera FPS-style: posição + ângulos yaw/pitch.
-// Player e goalkeeper têm ~1,87 e ~1,95 m. Com a câmera anterior em z=35,
-// eles apareciam com ~50 px de altura num frame de 800 px - era difícil
-// distinguir um do outro. A nova posição (z=20, y=2) enquadra os dois
-// claramente: goleiro em z=11.6 fica a ~9 m da câmera, jogador em z=0
-// fica a ~21 m, ambos visíveis.
+// Os jogadores têm cerca de 1,87 m. A posição inicial fica baixa o bastante
+// para distinguir os uniformes e afastada o bastante para ver as duas metades
+// do campo sem precisar reposicionar a câmera logo de início.
 static Vec3   g_camPos    = {0.0f, 2.0f, 20.0f};
 static float  g_yaw       = -90.0f;   // graus; -90 olha pro -Z
 static float  g_pitch     = -8.0f;
@@ -142,25 +139,35 @@ static bool   g_showLightMarkers = true;
 // Quatro torres/holofotes nos cantos do estádio high, apontando para o centro
 // do campo. Estes pontos foram ajustados a partir dos vértices mais altos do
 // stadium_high.obj, para a luz nascer visualmente dos refletores do modelo.
-static Vec3   g_fieldCenter      = {0.0f, 0.15f, 0.0f};
+static Vec3   g_fieldCenter      = {-0.8f, 0.72f, 0.5f};
 static Vec3   g_spotPositions[4] = {
     {-16.55f, 10.45f, -9.65f},
     { 14.95f, 10.45f, -9.65f},
     {-16.55f, 10.45f, 10.45f},
     { 14.95f, 10.45f, 10.45f}
 };
-// Posições no campo. Y = altura do gramado (g_fieldCenter.y). Os dois OBJs
-// foram exportados com a base dos pés em y=0, então a translação em Y é só o
-// nível do campo.
-//
-// Os OBJs foram exportados com os personagens olhando para +Z (face para a
-// direita no print de lateral). Como o jogador está em z=0 e o goleiro em
-// z=+11.6, o jogador naturalmente "olha" para o goleiro. Já o goleiro precisa
-// virar 180° em Y para olhar para o jogador (e não para a câmera).
-static Vec3   g_playerPosition       = {-6.0f, 0.15f,  0.0f};
-static float  g_playerYawDeg         =  0.0f;     // já olhando para o goleiro
-static Vec3   g_goalkeeperPosition   = { 6.0f, 0.15f, 11.6f};
-static float  g_goalkeeperYawDeg     = 180.0f;    // gira para olhar o jogador
+// Jogadores no campo. O gramado do stadium_high.obj fica um pouco acima de
+// y=0, então os pés são posicionados levemente acima dele. O campo é mais
+// comprido em X; a linha do meio cruza Z e divide as metades em X.
+struct PlayerInstance {
+    int meshIndex;
+    Vec3 position;
+    float yawDeg;
+};
+
+static PlayerInstance g_players[8] = {
+    // Time A: metade esquerda do campo (X menor), olhando para a linha do meio.
+    {0, {-8.2f, 1.0f, -3.8f},  90.0f},
+    {1, {-8.2f, 1.0f,  4.8f},  90.0f},
+    {2, {-4.2f, 1.0f, -1.8f},  90.0f},
+    {3, {-4.2f, 1.0f,  2.8f},  90.0f},
+
+    // Time B: metade direita do campo (X maior), espelhado e olhando para o meio.
+    {4, { 2.6f, 1.0f, -1.8f}, -90.0f},
+    {5, { 2.6f, 1.0f,  2.8f}, -90.0f},
+    {6, { 6.6f, 1.0f, -3.8f}, -90.0f},
+    {7, { 6.6f, 1.0f,  4.8f}, -90.0f}
+};
 
 // =============================================================================
 // HELPERS
@@ -404,7 +411,8 @@ static void loadOBJ(const std::string& path, Mesh& mesh) {
         // 'g', 'o', 's' ignorados - não afetam render
     }
 
-    std::cout << "[obj] " << mesh.positions.size() << " vertices, "
+    std::cout << "[obj] " << path << ": "
+              << mesh.positions.size() << " vertices, "
               << mesh.normals.size()   << " normais, "
               << mesh.texcoords.size() << " UVs, "
               << mesh.groups.size()    << " grupos\n";
@@ -665,21 +673,13 @@ static void configureLighting() {
 static void drawSceneObjects() {
     drawMesh(g_stadiumMesh);
 
-    // Os personagens exportados têm a base em y=0. O gramado do estádio fica
-    // em g_fieldCenter.y, então só transladamos para apoiar no campo. Cada um
-    // recebe também uma rotação em Y para ficar na direção certa (ver os
-    // comentários em g_playerYawDeg / g_goalkeeperYawDeg).
-    glPushMatrix();
-    glTranslatef(g_playerPosition.x, g_playerPosition.y, g_playerPosition.z);
-    glRotatef(g_playerYawDeg, 0.0f, 1.0f, 0.0f);
-    drawMesh(g_playerMesh);
-    glPopMatrix();
-
-    glPushMatrix();
-    glTranslatef(g_goalkeeperPosition.x, g_goalkeeperPosition.y, g_goalkeeperPosition.z);
-    glRotatef(g_goalkeeperYawDeg, 0.0f, 1.0f, 0.0f);
-    drawMesh(g_goalkeeperMesh);
-    glPopMatrix();
+    for (const PlayerInstance& player : g_players) {
+        glPushMatrix();
+        glTranslatef(player.position.x, player.position.y, player.position.z);
+        glRotatef(player.yawDeg, 0.0f, 1.0f, 0.0f);
+        drawMesh(g_playerMeshes[player.meshIndex]);
+        glPopMatrix();
+    }
 }
 
 static void display() {
@@ -768,15 +768,23 @@ int main(int argc, char** argv) {
 
     // Carregar os modelos. Paths relativos ao CWD (raiz do projeto).
     loadOBJ("assets/models/stadium_high.obj", g_stadiumMesh);
-    if (fileExists("assets/models/player.obj")) {
-        loadOBJ("assets/models/player.obj", g_playerMesh);
-    } else {
-        std::cout << "[obj] player.obj nao encontrado; seguindo sem jogador.\n";
-    }
-    if (fileExists("assets/models/goalkeeper.obj")) {
-        loadOBJ("assets/models/goalkeeper.obj", g_goalkeeperMesh);
-    } else {
-        std::cout << "[obj] goalkeeper.obj nao encontrado; seguindo sem goleiro.\n";
+    const char* playerPaths[8] = {
+        "assets/models/players/teamA_player_01.obj",
+        "assets/models/players/teamA_player_02.obj",
+        "assets/models/players/teamA_player_03.obj",
+        "assets/models/players/teamA_player_04.obj",
+        "assets/models/players/teamB_player_01.obj",
+        "assets/models/players/teamB_player_02.obj",
+        "assets/models/players/teamB_player_03.obj",
+        "assets/models/players/teamB_player_04.obj"
+    };
+    for (int i = 0; i < 8; ++i) {
+        if (fileExists(playerPaths[i])) {
+            loadOBJ(playerPaths[i], g_playerMeshes[i]);
+        } else {
+            std::cout << "[obj] " << playerPaths[i]
+                      << " nao encontrado; seguindo sem este jogador.\n";
+        }
     }
 
     glutDisplayFunc(display);
