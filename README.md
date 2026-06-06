@@ -14,10 +14,15 @@ StadiumGL/
 │   └── stb_image.h              ← você precisa baixar (passo abaixo)
 └── assets/
     ├── models/
-    │   ├── stadium.obj          ← exportado do Blender
-    │   └── stadium.mtl
+    │   ├── stadium_high.obj
+    │   └── stadium_high.mtl
     └── textures/
-        └── ColorRamp.png
+        └── stadium/
+            ├── Material_1_BaseColor_1.png
+            ├── Material_1_Normal.png
+            ├── Material_2_BaseColor.png
+            ├── Material_2_Emissive.png
+            └── Material_2_Normal.png
 ```
 
 ## Setup em 3 passos
@@ -66,15 +71,16 @@ make run
 | ← → ↑ ↓     | Olhar (yaw / pitch)                  |
 | `+` / `-`   | Aumentar / diminuir velocidade       |
 | R           | Reset da câmera                      |
+| L           | Mostrar / esconder marcadores dos holofotes |
 | ESC         | Sair                                 |
 
 ## O que esperar no primeiro render
 
-- Janela 1280×800 fundo cinza escuro
+- Janela 1280×800 com céu noturno azul-escuro
 - Estádio centralizado em (0,0,0), maior dimensão ~30 unidades
 - Câmera inicial em (0, 8, 35) olhando pra origem com pitch -10°
-- Iluminação direcional vinda do alto-direita (simulando sol)
-- Materiais com textura: ColorRamp.png aplicada via `GL_NEAREST` (faixas de cor nítidas)
+- Iluminação noturna com holofotes nos cantos do estádio apontando para o campo
+- Materiais com textura carregados a partir de `assets/textures/stadium/`
 - Materiais sem textura: cor sólida do `Kd` (scoreboard preto, refletores brancos amarelados, torcida colorida, etc.)
 - Sem efeitos emissivos por enquanto — qualquer "Ke" no MTL é ignorado neste teste
 
@@ -83,9 +89,10 @@ make run
 O `main.cpp` imprime no terminal o que carregou. Esperado:
 
 ```
-[mtl] 12 materiais carregados de assets/models/stadium.mtl
-[textura] assets/models/../textures/ColorRamp.png 64x64 canais=4
-[obj] 13062 vertices, 4438 normais, 116 UVs, 23 grupos
+[mtl] 2 materiais carregados de assets/models/stadium_high.mtl
+[textura] assets/models/../textures/stadium/Material_1_BaseColor_1.png ...
+[textura] assets/models/../textures/stadium/Material_2_BaseColor.png ...
+[obj] ... vertices, ... normais, ... UVs, ... grupos
 ```
 
 Se o estádio aparecer **todo preto**: provavelmente luz não está chegando — verifica a posição da luz (linha do `glLightfv(GL_LIGHT0, GL_POSITION, ...)` no `display()`).
@@ -101,7 +108,6 @@ Se aparece com **buracos / faces faltando**: as normais estão invertidas em alg
 Quando o teste estiver visualmente OK, podemos voltar pra adicionar:
 
 - Glow / emissive no scoreboard, refletores e estrela (precisa de shader GLSL ou multipass)
-- Spotlights reais como `GL_LIGHT1..7` apontando do alto pro campo
 - Skybox/skydome noturno
 - Bola e jogadores
 - Animação de torcida (vertex shader simples)

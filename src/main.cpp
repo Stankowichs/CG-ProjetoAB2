@@ -3,7 +3,7 @@
 // =============================================================================
 //
 // Objetivo deste arquivo: renderizar o estádio exportado do Blender,
-// verificando se geometria, normais, UVs, materiais e textura ColorRamp.png
+// verificando se geometria, normais, UVs, materiais e texturas do estádio
 // estão funcionando corretamente.
 //
 // Controles:
@@ -31,9 +31,9 @@
 //   ├── src/main.cpp                  (este arquivo)
 //   ├── include/stb_image.h           (baixe de https://github.com/nothings/stb)
 //   └── assets/
-//       ├── models/stadium.obj
-//       ├── models/stadium.mtl
-//       └── textures/ColorRamp.png
+//       ├── models/stadium_high.obj
+//       ├── models/stadium_high.mtl
+//       └── textures/stadium/*.png
 // =============================================================================
 
 // ----- Headers de plataforma -----
@@ -111,14 +111,21 @@ struct Mesh {
 // ESTADO GLOBAL (simples, sem singleton, suficiente pro teste)
 // =============================================================================
 
-static Mesh   g_mesh;
+static Mesh   g_stadiumMesh;
+static Mesh   g_playerMesh;
+static Mesh   g_goalkeeperMesh;
 static int    g_winW = 1280;
 static int    g_winH = 800;
 
-// Câmera FPS-style: posição + ângulos yaw/pitch
-static Vec3   g_camPos    = {0.0f, 8.0f, 35.0f};
+// Câmera FPS-style: posição + ângulos yaw/pitch.
+// Player e goalkeeper têm ~1,87 e ~1,95 m. Com a câmera anterior em z=35,
+// eles apareciam com ~50 px de altura num frame de 800 px - era difícil
+// distinguir um do outro. A nova posição (z=20, y=2) enquadra os dois
+// claramente: goleiro em z=11.6 fica a ~9 m da câmera, jogador em z=0
+// fica a ~21 m, ambos visíveis.
+static Vec3   g_camPos    = {0.0f, 2.0f, 20.0f};
 static float  g_yaw       = -90.0f;   // graus; -90 olha pro -Z
-static float  g_pitch     = -10.0f;
+static float  g_pitch     = -8.0f;
 static float  g_moveSpeed = 15.0f;    // unidades por segundo
 
 // Estado do teclado (pra movimento contínuo)
@@ -132,15 +139,28 @@ static int    g_lastMs = 0;
 // a cena assumir uma noite de jogo, sem alternância dia/noite.
 static bool   g_showLightMarkers = true;
 
-// Quatro torres/holofotes nos cantos do estádio, apontando para o centro do
-// campo. Os valores ficam em coordenadas de mundo do modelo importado.
-static Vec3   g_fieldCenter      = {0.0f, -4.7f, 0.0f};
+// Quatro torres/holofotes nos cantos do estádio high, apontando para o centro
+// do campo. Estes pontos foram ajustados a partir dos vértices mais altos do
+// stadium_high.obj, para a luz nascer visualmente dos refletores do modelo.
+static Vec3   g_fieldCenter      = {0.0f, 0.15f, 0.0f};
 static Vec3   g_spotPositions[4] = {
-    {-13.6f, 5.8f, -14.4f},
-    { 13.6f, 5.8f, -14.4f},
-    {-13.6f, 5.8f,  14.4f},
-    { 13.6f, 5.8f,  14.4f}
+    {-16.55f, 10.45f, -9.65f},
+    { 14.95f, 10.45f, -9.65f},
+    {-16.55f, 10.45f, 10.45f},
+    { 14.95f, 10.45f, 10.45f}
 };
+// Posições no campo. Y = altura do gramado (g_fieldCenter.y). Os dois OBJs
+// foram exportados com a base dos pés em y=0, então a translação em Y é só o
+// nível do campo.
+//
+// Os OBJs foram exportados com os personagens olhando para +Z (face para a
+// direita no print de lateral). Como o jogador está em z=0 e o goleiro em
+// z=+11.6, o jogador naturalmente "olha" para o goleiro. Já o goleiro precisa
+// virar 180° em Y para olhar para o jogador (e não para a câmera).
+static Vec3   g_playerPosition       = {-6.0f, 0.15f,  0.0f};
+static float  g_playerYawDeg         =  0.0f;     // já olhando para o goleiro
+static Vec3   g_goalkeeperPosition   = { 6.0f, 0.15f, 11.6f};
+static float  g_goalkeeperYawDeg     = 180.0f;    // gira para olhar o jogador
 
 // =============================================================================
 // HELPERS
@@ -158,11 +178,16 @@ static Vec3 normalize(const Vec3& v) {
     return {v.x / len, v.y / len, v.z / len};
 }
 
-// Extrai o diretório de um path. Ex: "assets/models/stadium.obj" -> "assets/models"
+// Extrai o diretório de um path. Ex: "assets/models/stadium_high.obj" -> "assets/models"
 static std::string dirname(const std::string& path) {
     size_t slash = path.find_last_of("/\\");
     if (slash == std::string::npos) return ".";
     return path.substr(0, slash);
+}
+
+static bool fileExists(const std::string& path) {
+    std::ifstream f(path);
+    return (bool)f;
 }
 
 // =============================================================================
@@ -484,7 +509,7 @@ static void drawLightMarkers() {
     for (int i = 0; i < 4; ++i) {
         glPushMatrix();
         glTranslatef(g_spotPositions[i].x, g_spotPositions[i].y, g_spotPositions[i].z);
-        glutSolidSphere(0.7, 16, 12);
+        glutSolidSphere(0.45, 16, 12);
         glPopMatrix();
     }
 
@@ -502,7 +527,7 @@ static void drawSpotlightBeams() {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
     glDepthMask(GL_FALSE);
 
-    const float radius = 4.4f;
+    const float radius = 7.2f;
     for (int i = 0; i < 4; ++i) {
         const Vec3& p = g_spotPositions[i];
 
@@ -513,7 +538,7 @@ static void drawSpotlightBeams() {
         for (int s = 0; s <= 18; ++s) {
             float a = (2.0f * 3.14159265358979f * s) / 18.0f;
             glVertex3f(g_fieldCenter.x + cosf(a) * radius,
-                       g_fieldCenter.y + 0.25f,
+                       g_fieldCenter.y + 0.10f,
                        g_fieldCenter.z + sinf(a) * radius);
         }
         glEnd();
@@ -539,9 +564,9 @@ static void computeForwardRight(Vec3& fwd, Vec3& right) {
 }
 
 static void resetCamera() {
-    g_camPos    = {0.0f, 8.0f, 35.0f};
+    g_camPos    = {0.0f, 2.0f, 20.0f};
     g_yaw       = -90.0f;
-    g_pitch     = -10.0f;
+    g_pitch     = -8.0f;
     g_moveSpeed = 15.0f;
 }
 
@@ -593,17 +618,18 @@ static void configureLighting() {
     // Luz ambiente global: é a parcela mínima que ilumina tudo igualmente.
     // Para uma noite de estádio real, ela não pode ser preta: há muita luz
     // rebatida no gramado, arquibancadas e cobertura.
-    GLfloat globalNight[4] = {0.115f, 0.125f, 0.155f, 1.0f};
+    GLfloat globalNight[4] = {0.145f, 0.150f, 0.165f, 1.0f};
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, globalNight);
 
     // GL_LIGHT0 como luz direcional: w=0 em GL_POSITION significa que a luz
-    // vem de uma direção infinita. Aqui ela é só um preenchimento frio e fraco;
-    // a iluminação principal vem dos holofotes nos cantos.
-    glEnable(GL_LIGHT0);
+    // vem de uma direção infinita. Como queremos que a cena pareça iluminada
+    // pelos refletores do estádio, ela fica desativada; o preenchimento vem do
+    // ambiente global acima.
+    glDisable(GL_LIGHT0);
     GLfloat dirPos[4]  = {-0.25f, 0.80f, 0.20f, 0.0f};
-    GLfloat dirAmb[4]  = { 0.025f, 0.030f, 0.045f, 1.0f};
-    GLfloat dirDif[4]  = { 0.135f, 0.155f, 0.220f, 1.0f};
-    GLfloat dirSpec[4] = { 0.090f, 0.100f, 0.135f, 1.0f};
+    GLfloat dirAmb[4]  = { 0.000f, 0.000f, 0.000f, 1.0f};
+    GLfloat dirDif[4]  = { 0.000f, 0.000f, 0.000f, 1.0f};
+    GLfloat dirSpec[4] = { 0.000f, 0.000f, 0.000f, 1.0f};
     glLightfv(GL_LIGHT0, GL_POSITION, dirPos);
     glLightfv(GL_LIGHT0, GL_AMBIENT,  dirAmb);
     glLightfv(GL_LIGHT0, GL_DIFFUSE,  dirDif);
@@ -619,21 +645,41 @@ static void configureLighting() {
         Vec3 dir = normalize(subtract(g_fieldCenter, g_spotPositions[i]));
         GLfloat pos[4] = {g_spotPositions[i].x, g_spotPositions[i].y, g_spotPositions[i].z, 1.0f};
         GLfloat spotDir[3] = {dir.x, dir.y, dir.z};
-        GLfloat amb[4]  = {0.018f, 0.016f, 0.012f, 1.0f};
-        GLfloat dif[4]  = {1.35f, 1.25f, 1.02f, 1.0f};
-        GLfloat spec[4] = {0.85f, 0.78f, 0.62f, 1.0f};
+        GLfloat amb[4]  = {0.028f, 0.026f, 0.020f, 1.0f};
+        GLfloat dif[4]  = {1.65f, 1.55f, 1.30f, 1.0f};
+        GLfloat spec[4] = {0.95f, 0.88f, 0.72f, 1.0f};
 
         glLightfv(ids[i], GL_POSITION, pos);
         glLightfv(ids[i], GL_SPOT_DIRECTION, spotDir);
         glLightfv(ids[i], GL_AMBIENT,  amb);
         glLightfv(ids[i], GL_DIFFUSE,  dif);
         glLightfv(ids[i], GL_SPECULAR, spec);
-        glLightf(ids[i], GL_SPOT_CUTOFF,   46.0f);
-        glLightf(ids[i], GL_SPOT_EXPONENT, 9.0f);
+        glLightf(ids[i], GL_SPOT_CUTOFF,   54.0f);
+        glLightf(ids[i], GL_SPOT_EXPONENT, 5.0f);
         glLightf(ids[i], GL_CONSTANT_ATTENUATION,  1.0f);
-        glLightf(ids[i], GL_LINEAR_ATTENUATION,    0.006f);
-        glLightf(ids[i], GL_QUADRATIC_ATTENUATION, 0.00035f);
+        glLightf(ids[i], GL_LINEAR_ATTENUATION,    0.004f);
+        glLightf(ids[i], GL_QUADRATIC_ATTENUATION, 0.00016f);
     }
+}
+
+static void drawSceneObjects() {
+    drawMesh(g_stadiumMesh);
+
+    // Os personagens exportados têm a base em y=0. O gramado do estádio fica
+    // em g_fieldCenter.y, então só transladamos para apoiar no campo. Cada um
+    // recebe também uma rotação em Y para ficar na direção certa (ver os
+    // comentários em g_playerYawDeg / g_goalkeeperYawDeg).
+    glPushMatrix();
+    glTranslatef(g_playerPosition.x, g_playerPosition.y, g_playerPosition.z);
+    glRotatef(g_playerYawDeg, 0.0f, 1.0f, 0.0f);
+    drawMesh(g_playerMesh);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(g_goalkeeperPosition.x, g_goalkeeperPosition.y, g_goalkeeperPosition.z);
+    glRotatef(g_goalkeeperYawDeg, 0.0f, 1.0f, 0.0f);
+    drawMesh(g_goalkeeperMesh);
+    glPopMatrix();
 }
 
 static void display() {
@@ -661,7 +707,7 @@ static void display() {
     // mundo e não "grudam" no observador.
     configureLighting();
 
-    drawMesh(g_mesh);
+    drawSceneObjects();
     drawSpotlightBeams();
     drawLightMarkers();
 
@@ -720,8 +766,18 @@ int main(int argc, char** argv) {
 
     initGL();
 
-    // Carregar o modelo. Path relativo ao CWD (raiz do projeto).
-    loadOBJ("assets/models/stadium.obj", g_mesh);
+    // Carregar os modelos. Paths relativos ao CWD (raiz do projeto).
+    loadOBJ("assets/models/stadium_high.obj", g_stadiumMesh);
+    if (fileExists("assets/models/player.obj")) {
+        loadOBJ("assets/models/player.obj", g_playerMesh);
+    } else {
+        std::cout << "[obj] player.obj nao encontrado; seguindo sem jogador.\n";
+    }
+    if (fileExists("assets/models/goalkeeper.obj")) {
+        loadOBJ("assets/models/goalkeeper.obj", g_goalkeeperMesh);
+    } else {
+        std::cout << "[obj] goalkeeper.obj nao encontrado; seguindo sem goleiro.\n";
+    }
 
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
