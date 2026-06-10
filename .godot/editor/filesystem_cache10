@@ -1,5 +1,5 @@
 63f7b34db8d8cdea90c76aacccf841ec
-::res://::1781121377
+::res://::1781124089
 icon.svg::CompressedTexture2D::5256268407987331753::1781050228::1781050727::1::::<><><>0<>0<>c60719af9bfdffb109d3120eaba7e92b<>res://.godot/imported/icon.svg-218a8f2b3041327d8a5756f3a245f83b.ctex::
 README.md::TextFile::-1::1781051063::0::1::::<><><>0<>0<><>::
 ::res://models/::1781119971
@@ -184,13 +184,13 @@ stadium_Image_5.png::CompressedTexture2D::229751085374406968::1781055063::178110
 stadium_Image_6.png::CompressedTexture2D::7108624556673598196::1781055062::1781109311::1::::<><><>0<>0<>5cd4712cf150f7c61f24e971191e5433<>res://.godot/imported/stadium_Image_6.png-94ea64c1769f97a1e63b7abf1ec291ae.s3tc.ctex::
 star.glb::PackedScene::2292958768731521739::1780715170::1781051934::1::::<><><>0<>0<>84f7aa129abb15bd86e0329fa07d46c9<>res://.godot/imported/star.glb-3ffbb93f72ca66a731c3b04204d868f6.scn::
 ::res://scenes/::1781120806
-Main.tscn::PackedScene::168495289208767::1781120806::0::1::::<><><>0<>0<><>::uid://b1player2024::::res://scenes/Player.tscn<>uid://7fdph5pkg3of::::res://scripts/StarSpin.gd<>uid://byqnds1qocuuu::::res://models/stadium.glb<>uid://7wyxwqi8urrv::::res://models/star.glb<>uid://njyxol33x0tl::::res://models/player_yellow.glb<>uid://bes5vt4iwubv6::::res://models/player_red.glb<>uid://bnes8pvt6xssv::::res://scripts/StadiumLights.gd<>uid://cfkv5gykf5um0::::res://scripts/BroadcastCamera.gd<>uid://cyv0konvdhwdg::::res://scripts/StadiumColliders.gd<>res://models/ball.glb
-Player.tscn::PackedScene::124793101148893823::1781121193::0::1::::<><><>0<>0<><>::res://scripts/Player.gd<>res://models/ronaldo.glb
+Main.tscn::PackedScene::168495289208767::1781122322::0::1::::<><><>0<>0<><>::uid://b1player2024::::res://scenes/Player.tscn<>uid://7fdph5pkg3of::::res://scripts/StarSpin.gd<>uid://byqnds1qocuuu::::res://models/stadium.glb<>uid://7wyxwqi8urrv::::res://models/star.glb<>uid://njyxol33x0tl::::res://models/player_yellow.glb<>uid://bes5vt4iwubv6::::res://models/player_red.glb<>uid://bnes8pvt6xssv::::res://scripts/StadiumLights.gd<>uid://cfkv5gykf5um0::::res://scripts/BroadcastCamera.gd<>uid://cyv0konvdhwdg::::res://scripts/StadiumColliders.gd<>res://models/ball.glb
+Player.tscn::PackedScene::124793101148893823::1781121894::0::1::::<><><>0<>0<><>::res://scripts/Player.gd<>res://models/ronaldo.glb
 ::res://scripts/::1781120883
 BroadcastCamera.gd::GDScript::5145758346459849857::1781116557::0::1::::<>Camera3D<><>0<>0<><>::
 GroundShadow.gd::GDScript::2493160992293340031::1781120827::0::1::::<>Node3D<><>0<>0<><>::
-Player.gd::GDScript::3186482549440037804::1781121327::0::1::::<>CharacterBody3D<><>0<>0<><>::
-StadiumColliders.gd::GDScript::6502262086660258188::1781120299::0::1::::<>Node3D<><>0<>0<><>::
+Player.gd::GDScript::3186482549440037804::1781121963::0::1::::<>CharacterBody3D<><>0<>0<><>::
+StadiumColliders.gd::GDScript::6502262086660258188::1781121608::0::1::::<>Node3D<><>0<>0<><>::
 StadiumLights.gd::GDScript::3308285820269188873::1781119640::0::1::::<>Node3D<><>0<>0<><>::
 StarSpin.gd::GDScript::2256574237776954881::1781050254::0::1::::<>Node3D<><>0<>0<><>::
 ::res://shaders/::1781108595

@@ -1,2 +1,3 @@
+res://scenes/Main.tscn
 res://scripts/Player.gd
-res://scripts/StadiumColliders.gd
+res://scripts/StadiumLights.gd

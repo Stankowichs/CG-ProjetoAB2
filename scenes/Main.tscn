@@ -9,7 +9,7 @@
 [ext_resource type="Script" uid="uid://bnes8pvt6xssv" path="res://scripts/StadiumLights.gd" id="7_lights"]
 [ext_resource type="Script" uid="uid://cfkv5gykf5um0" path="res://scripts/BroadcastCamera.gd" id="9_broadcast_cam"]
 [ext_resource type="Script" uid="uid://cyv0konvdhwdg" path="res://scripts/StadiumColliders.gd" id="10_stadium_col"]
-[ext_resource type="PackedScene" path="res://models/ball.glb" id="11_ball"]
+[ext_resource type="PackedScene" uid="uid://dycrafsv0rxyg" path="res://models/ball.glb" id="11_ball"]
 
 [sub_resource type="PhysicalSkyMaterial" id="SkyMat_phys"]
 rayleigh_color = Color(0.32, 0.55, 0.95, 1)
@@ -56,12 +56,12 @@ adjustment_enabled = true
 
 [sub_resource type="WorldBoundaryShape3D" id="WBShape_floor"]
 
-[sub_resource type="SphereShape3D" id="SphereShape_ball"]
-radius = 0.3
-
 [sub_resource type="PhysicsMaterial" id="PhysMat_ball"]
 friction = 0.5
 bounce = 0.55
+
+[sub_resource type="SphereShape3D" id="SphereShape_ball"]
+radius = 0.3
 
 [node name="Main" type="Node3D" unique_id=1778268074]
 
@@ -77,9 +77,6 @@ light_angular_distance = 0.6
 shadow_enabled = true
 shadow_bias = 0.03
 shadow_normal_bias = 1.5
-shadow_blur = 1.0
-directional_shadow_mode = 2
-directional_shadow_split_1 = 0.1
 directional_shadow_split_2 = 0.3
 directional_shadow_split_3 = 0.6
 directional_shadow_blend_splits = true
@@ -97,7 +94,7 @@ script = ExtResource("10_stadium_col")
 shape = SubResource("WBShape_floor")
 
 [node name="Player" parent="." unique_id=921333752 instance=ExtResource("1_player")]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -16, 0, 0)
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -11, 0, 0)
 
 [node name="BroadcastCamera" type="Camera3D" parent="." unique_id=489587588]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 28, 55)
@@ -112,36 +109,35 @@ fov_near = 18.0
 fov_far = 32.0
 
 [node name="TeamYellow_02" parent="." unique_id=566777655 instance=ExtResource("5_npc_yellow")]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -42, 0, 0)
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -31.5, 0, 0)
 
 [node name="TeamYellow_03" parent="." unique_id=1156300258 instance=ExtResource("5_npc_yellow")]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -32, 0, -14)
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -20, 0, -14)
 
 [node name="TeamYellow_04" parent="." unique_id=1380767476 instance=ExtResource("5_npc_yellow")]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -32, 0, 14)
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -20, 0, 14)
 
 [node name="TeamRed_Keeper" parent="." unique_id=1722635657 instance=ExtResource("6_npc_red")]
-transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 42, 0, 0)
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 27.5, 0, 0)
 
 [node name="TeamRed_02" parent="." unique_id=343256110 instance=ExtResource("6_npc_red")]
-transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 32, 0, -14)
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 18, 0, -14)
 
 [node name="TeamRed_03" parent="." unique_id=865638191 instance=ExtResource("6_npc_red")]
-transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 32, 0, 14)
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 18, 0, 14)
 
 [node name="TeamRed_04" parent="." unique_id=1507276754 instance=ExtResource("6_npc_red")]
-transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 16, 0, 0)
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 8, 0, 0)
 
 [node name="Ball" type="RigidBody3D" parent="." unique_id=1955639663]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
 collision_layer = 4
-collision_mask = 1
 mass = 0.43
+physics_material_override = SubResource("PhysMat_ball")
 linear_damp = 0.5
 angular_damp = 0.7
-physics_material_override = SubResource("PhysMat_ball")
 
-[node name="Model" parent="Ball" instance=ExtResource("11_ball")]
+[node name="Model" parent="Ball" unique_id=908254603 instance=ExtResource("11_ball")]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Ball" unique_id=1677118117]
 shape = SubResource("SphereShape_ball")
