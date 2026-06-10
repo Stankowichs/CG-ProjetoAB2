@@ -1,113 +1,65 @@
-# StadiumGL — Teste do pipeline Blender → OBJ/MTL → OpenGL
+# CG-ProjetoAB2 — Versão Godot 4
 
-Renderização inicial do estádio low-poly em C++ com OpenGL clássico + GLUT, pra validar que o modelo, textura, escala e câmera estão corretos antes de adicionar mecânicas.
+Demo de futebol em terceira pessoa rodando em Godot 4.6 (Forward+).
+Substitui o build OpenGL clássico para ter PBR, sombras e animações de GLB
+funcionando de graça.
 
-## Estrutura
+## Como rodar
 
-```
-StadiumGL/
-├── Makefile
-├── README.md
-├── src/
-│   └── main.cpp                 ← código principal
-├── include/
-│   └── stb_image.h              ← você precisa baixar (passo abaixo)
-└── assets/
-    ├── models/
-    │   ├── stadium_high.obj
-    │   └── stadium_high.mtl
-    └── textures/
-        └── stadium/
-            ├── Material_1_BaseColor_1.png
-            ├── Material_1_Normal.png
-            ├── Material_2_BaseColor.png
-            ├── Material_2_Emissive.png
-            └── Material_2_Normal.png
-```
-
-## Setup em 3 passos
-
-### 1) Baixar `stb_image.h`
-
-Single-header de ~7k linhas pra carregar PNG. Baixa daqui:
-
-https://raw.githubusercontent.com/nothings/stb/master/stb_image.h
-
-Coloca em `include/stb_image.h`. Comando direto pelo terminal:
-
-```bash
-cd StadiumGL
-curl -L -o include/stb_image.h https://raw.githubusercontent.com/nothings/stb/master/stb_image.h
-```
-
-### 2) Compilar
-
-```bash
-make
-```
-
-No macOS pode aparecer um warning sobre GLUT estar deprecated — é só warning, ignora. O binário é gerado como `./stadium`.
-
-### 3) Rodar
-
-**Importante:** roda a partir da raiz do projeto (paths em `main.cpp` são relativos).
-
-```bash
-./stadium
-```
-
-Ou direto:
-
-```bash
-make run
-```
+1. Instale o **Godot 4.6** (download: <https://godotengine.org/download>). Use a build padrão (não a "- .NET").
+2. Abra o Godot, clique em **Import**, aponte pra esta pasta (`godot/`),
+   selecione `project.godot`.
+3. O editor abre. Aperte **F5** (ou o ícone de play no canto superior direito).
+4. Vai aparecer um campo gramado, um jogador (cápsula vermelha — placeholder),
+   um goleiro (cápsula preta) e uma estrela (prisma dourado girando).
 
 ## Controles
 
-| Tecla       | Ação                                 |
-| ----------- | ------------------------------------ |
-| W A S D     | Mover câmera (frente / lados / trás) |
-| Q / E       | Descer / subir                       |
-| ← → ↑ ↓     | Olhar (yaw / pitch)                  |
-| `+` / `-`   | Aumentar / diminuir velocidade       |
-| R           | Reset da câmera                      |
-| L           | Mostrar / esconder marcadores dos holofotes |
-| ESC         | Sair                                 |
+| tecla        | ação                              |
+|--------------|-----------------------------------|
+| `W A S D`    | mover (relativo à câmera)         |
+| `Mouse`      | olhar (Yaw no corpo, Pitch na câmera) |
+| `Espaço`     | pular                             |
+| `Shift`      | sprint                            |
+| `Click esq.` | (reservado para chutar)           |
+| `ESC`        | libera o mouse                    |
 
-## O que esperar no primeiro render
-
-- Janela 1280×800 com céu noturno azul-escuro
-- Estádio centralizado em (0,0,0), maior dimensão ~30 unidades
-- Câmera inicial em (0, 8, 35) olhando pra origem com pitch -10°
-- Iluminação noturna com holofotes nos cantos do estádio apontando para o campo
-- Materiais com textura carregados a partir de `assets/textures/stadium/`
-- Materiais sem textura: cor sólida do `Kd` (scoreboard preto, refletores brancos amarelados, torcida colorida, etc.)
-- Sem efeitos emissivos por enquanto — qualquer "Ke" no MTL é ignorado neste teste
-
-## Diagnóstico
-
-O `main.cpp` imprime no terminal o que carregou. Esperado:
+## Estrutura do projeto
 
 ```
-[mtl] 2 materiais carregados de assets/models/stadium_high.mtl
-[textura] assets/models/../textures/stadium/Material_1_BaseColor_1.png ...
-[textura] assets/models/../textures/stadium/Material_2_BaseColor.png ...
-[obj] ... vertices, ... normais, ... UVs, ... grupos
+godot/
+├── project.godot          # config do Godot
+├── icon.svg               # ícone do projeto
+├── models/
+│   ├── stadium_high.obj   # estádio 40×10.6×26.6 m
+│   └── players/           # 8 jogadores (4 teamA + 4 teamB)
+├── textures/
+│   ├── stadium/*.png      # baseColor + normal + emissive
+│   └── players/           # 2 atlases (teamA, teamB)
+├── scenes/
+│   ├── Main.tscn          # mundo: estádio, sol, ambiente PBR, 8 jogadores, bola, estrela
+│   └── Player.tscn        # jogador controlável: CharacterBody3D + câmera 3ª pessoa
+└── scripts/
+    ├── Player.gd          # WASD + mouse + pulo + sprint
+    └── StarSpin.gd        # estrela girando e flutuando
 ```
 
-Se o estádio aparecer **todo preto**: provavelmente luz não está chegando — verifica a posição da luz (linha do `glLightfv(GL_LIGHT0, GL_POSITION, ...)` no `display()`).
+## Status dos modelos
 
-Se a **textura aparece manchada/borrada**: você ligou `GL_LINEAR` em vez de `GL_NEAREST`.
+| nó na cena | modelo | posição |
+|---|---|---|
+| Player (controlável) | teamA_player_01.obj | (0, 0, 0) |
+| TeamA_02 | teamA_player_02.obj | (-8, 0, -2) |
+| TeamA_03 | teamA_player_03.obj | (8, 0, -2) |
+| TeamA_04 | teamA_player_04.obj | (0, 0, 4) |
+| Goalkeeper | teamB_player_01.obj (rotacionado 180°) | (0, 0, -12.5) |
+| TeamB_02..04 | teamB_player_02..04.obj (rotacionados 180°) | região defensiva |
+| Stadium | stadium_high.obj | origem |
+| Star (power-up) | placeholder (PrismMesh dourado) | (-5, 0.8, 5) |
+| Ball | placeholder (SphereMesh branca) | (0, 0.3, -2) |
 
-Se o estádio aparece **rosa/magenta**: a textura não carregou. Confira o terminal pelo erro do stb_image. Provavelmente o working directory está errado — rode de dentro de `StadiumGL/`, não de outro lugar.
+## Roadmap (3 dias)
 
-Se aparece com **buracos / faces faltando**: as normais estão invertidas em alguns triângulos. O `glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE)` já deve resolver isso, mas se ainda persistir, comenta a linha `glEnable(GL_CULL_FACE)` (já está comentada por default).
-
-## Próximos passos (não implementados ainda)
-
-Quando o teste estiver visualmente OK, podemos voltar pra adicionar:
-
-- Glow / emissive no scoreboard, refletores e estrela (precisa de shader GLSL ou multipass)
-- Skybox/skydome noturno
-- Bola e jogadores
-- Animação de torcida (vertex shader simples)
+- [x] Dia 1: Scaffold + jogador + câmera + ambiente PBR + placeholders
+- [ ] Dia 2: Chute (apply_impulse na bola), 7 NPCs com IA mínima, animação do goleiro
+- [ ] Dia 3: Power-up (Area3D na estrela), placar, gol (Area3D no fundo da rede), HUD

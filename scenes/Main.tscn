@@ -1,0 +1,154 @@
+[gd_scene format=3 uid="uid://c1main2024"]
+
+[ext_resource type="PackedScene" uid="uid://b1player2024" path="res://scenes/Player.tscn" id="1_player"]
+[ext_resource type="Script" uid="uid://7fdph5pkg3of" path="res://scripts/StarSpin.gd" id="2_star_spin"]
+[ext_resource type="PackedScene" uid="uid://byqnds1qocuuu" path="res://models/stadium.glb" id="3_stadium"]
+[ext_resource type="PackedScene" uid="uid://7wyxwqi8urrv" path="res://models/star.glb" id="4_star"]
+[ext_resource type="PackedScene" uid="uid://njyxol33x0tl" path="res://models/player_yellow.glb" id="5_npc_yellow"]
+[ext_resource type="PackedScene" uid="uid://bes5vt4iwubv6" path="res://models/player_red.glb" id="6_npc_red"]
+[ext_resource type="Script" uid="uid://bnes8pvt6xssv" path="res://scripts/StadiumLights.gd" id="7_lights"]
+[ext_resource type="Script" uid="uid://cfkv5gykf5um0" path="res://scripts/BroadcastCamera.gd" id="9_broadcast_cam"]
+[ext_resource type="Script" uid="uid://cyv0konvdhwdg" path="res://scripts/StadiumColliders.gd" id="10_stadium_col"]
+[ext_resource type="PackedScene" path="res://models/ball.glb" id="11_ball"]
+
+[sub_resource type="PhysicalSkyMaterial" id="SkyMat_phys"]
+rayleigh_color = Color(0.32, 0.55, 0.95, 1)
+mie_coefficient = 0.004
+mie_eccentricity = 0.78
+mie_color = Color(1, 0.98, 0.95, 1)
+turbidity = 2.5
+sun_disk_scale = 2.5
+ground_color = Color(0.3, 0.3, 0.28, 1)
+
+[sub_resource type="Sky" id="Sky_main"]
+sky_material = SubResource("SkyMat_phys")
+radiance_size = 4
+
+[sub_resource type="Environment" id="Env_main"]
+background_mode = 2
+sky = SubResource("Sky_main")
+tonemap_mode = 3
+tonemap_white = 14.0
+ssao_enabled = true
+ssao_intensity = 0.15
+ssil_enabled = true
+ssil_radius = 3.0
+sdfgi_enabled = true
+sdfgi_bounce_feedback = 0.72
+sdfgi_energy = 1.15
+glow_enabled = true
+glow_intensity = 0.08
+glow_strength = 0.3
+glow_hdr_threshold = 3.4
+fog_light_color = Color(0.82, 0.78, 0.72, 1)
+fog_light_energy = 0.45
+fog_sun_scatter = 0.12
+fog_density = 0.0008
+fog_aerial_perspective = 0.12
+volumetric_fog_density = 0.0014
+volumetric_fog_albedo = Color(0.92, 0.88, 0.82, 1)
+volumetric_fog_emission = Color(0.18, 0.19, 0.2, 1)
+volumetric_fog_emission_energy = 0.35
+volumetric_fog_anisotropy = 0.4
+volumetric_fog_length = 70.0
+volumetric_fog_ambient_inject = 0.55
+adjustment_enabled = true
+
+[sub_resource type="WorldBoundaryShape3D" id="WBShape_floor"]
+
+[sub_resource type="SphereShape3D" id="SphereShape_ball"]
+radius = 0.3
+
+[sub_resource type="PhysicsMaterial" id="PhysMat_ball"]
+friction = 0.5
+bounce = 0.55
+
+[node name="Main" type="Node3D" unique_id=1778268074]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=551104739]
+environment = SubResource("Env_main")
+
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=1211252829]
+transform = Transform3D(1, 0, 0, 0, 0.34202, 0.93969, 0, -0.93969, 0.34202, 0, 60, 0)
+light_color = Color(1, 0.97, 0.9, 1)
+light_energy = 1.15
+light_indirect_energy = 0.5
+light_angular_distance = 0.6
+shadow_enabled = true
+shadow_bias = 0.03
+shadow_normal_bias = 1.5
+shadow_blur = 1.0
+directional_shadow_mode = 2
+directional_shadow_split_1 = 0.1
+directional_shadow_split_2 = 0.3
+directional_shadow_split_3 = 0.6
+directional_shadow_blend_splits = true
+directional_shadow_max_distance = 140.0
+
+[node name="StadiumLights" type="Node3D" parent="." unique_id=1020447245]
+script = ExtResource("7_lights")
+
+[node name="Stadium" parent="." unique_id=1501543769 instance=ExtResource("3_stadium")]
+script = ExtResource("10_stadium_col")
+
+[node name="GroundCollider" type="StaticBody3D" parent="." unique_id=2084328724]
+
+[node name="Floor" type="CollisionShape3D" parent="GroundCollider" unique_id=367030197]
+shape = SubResource("WBShape_floor")
+
+[node name="Player" parent="." unique_id=921333752 instance=ExtResource("1_player")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -16, 0, 0)
+
+[node name="BroadcastCamera" type="Camera3D" parent="." unique_id=489587588]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 28, 55)
+fov = 28.0
+near = 0.5
+far = 600.0
+script = ExtResource("9_broadcast_cam")
+target_path = NodePath("../Player")
+target_offset = Vector3(0, 1.5, 0)
+track_speed = 3.5
+fov_near = 18.0
+fov_far = 32.0
+
+[node name="TeamYellow_02" parent="." unique_id=566777655 instance=ExtResource("5_npc_yellow")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -42, 0, 0)
+
+[node name="TeamYellow_03" parent="." unique_id=1156300258 instance=ExtResource("5_npc_yellow")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -32, 0, -14)
+
+[node name="TeamYellow_04" parent="." unique_id=1380767476 instance=ExtResource("5_npc_yellow")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -32, 0, 14)
+
+[node name="TeamRed_Keeper" parent="." unique_id=1722635657 instance=ExtResource("6_npc_red")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 42, 0, 0)
+
+[node name="TeamRed_02" parent="." unique_id=343256110 instance=ExtResource("6_npc_red")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 32, 0, -14)
+
+[node name="TeamRed_03" parent="." unique_id=865638191 instance=ExtResource("6_npc_red")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 32, 0, 14)
+
+[node name="TeamRed_04" parent="." unique_id=1507276754 instance=ExtResource("6_npc_red")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 16, 0, 0)
+
+[node name="Ball" type="RigidBody3D" parent="." unique_id=1955639663]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
+collision_layer = 4
+collision_mask = 1
+mass = 0.43
+linear_damp = 0.5
+angular_damp = 0.7
+physics_material_override = SubResource("PhysMat_ball")
+
+[node name="Model" parent="Ball" instance=ExtResource("11_ball")]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ball" unique_id=1677118117]
+shape = SubResource("SphereShape_ball")
+
+[node name="Star" type="Node3D" parent="." unique_id=641495737]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 0.8, 5)
+script = ExtResource("2_star_spin")
+
+[node name="StarModel" parent="Star" unique_id=46177882 instance=ExtResource("4_star")]
+transform = Transform3D(0.001, 0, 0, 0, 0.001, 0, 0, 0, 0.001, 0, 0, 0)
