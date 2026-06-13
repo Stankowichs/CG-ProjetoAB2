@@ -125,7 +125,7 @@ func _ready() -> void:
 	_setup_match_ai()
 	_create_scoreboard()
 	_update_scoreboard()
-
+	_create_field_walls()
 
 func _process(delta: float) -> void:
 	_update_score_pulse(delta)
@@ -348,20 +348,16 @@ func _setup_ai_collision(player_node: Node3D, radius: float = ai_body_radius) ->
 	if player_node.has_node("NpcBodyCollider"):
 		return
 
-	# AnimatableBody3D em vez de StaticBody3D: como o corpo é movido junto com o
-	# nó (que reposiciona global_position a cada frame de física), o sync_to_physics
-	# deriva uma velocidade e EMPURRA a bola de forma contínua, em vez de teleportá-la
-	# pra fora quando ela penetra um corpo estático.
 	var body := AnimatableBody3D.new()
 	body.name = "NpcBodyCollider"
-	body.sync_to_physics = true
+	body.sync_to_physics = false  # controlamos a posição manualmente
 	body.collision_layer = 1
 	body.collision_mask = 4
 	player_node.add_child(body)
 
 	var shape := CollisionShape3D.new()
 	shape.name = "Shape"
-	shape.position = Vector3(0.0, 0.9, 0.0)
+	shape.position = Vector3(0.0, 0.9, 2.0)  # offset zerado — posição já vem correta do _move_ai_player
 	var capsule := CapsuleShape3D.new()
 	capsule.radius = radius
 	capsule.height = 1.8
@@ -1130,8 +1126,6 @@ func _move_ai_player(player_node: Node3D, target: Vector3, speed: float, delta: 
 	if player_node == null:
 		return
 
-	# Quem acabou de perder a bola (ou de dar o bote) fica brevemente se recompondo:
-	# para de correr, mas continua encarando o alvo pra logo voltar a pressionar.
 	if _is_ai_stunned(player_node):
 		_set_ai_motion_anim(player_node, false)
 		_face_ai_player_focus(player_node, target, delta)
@@ -1151,6 +1145,12 @@ func _move_ai_player(player_node: Node3D, target: Vector3, speed: float, delta: 
 
 	var next_pos := pos.move_toward(target, speed * delta)
 	next_pos = _separate_ai_position(player_node, next_pos)
+
+	# Move o AnimatableBody diretamente para a colisão seguir sem delay
+	var body := player_node.get_node_or_null("NpcBodyCollider") as AnimatableBody3D
+	if body:
+		body.global_position = next_pos
+
 	player_node.global_position = next_pos
 
 	var moved := _ground_distance(pos, next_pos) > 0.025
@@ -1462,3 +1462,47 @@ func _update_score_pulse(delta: float) -> void:
 		_scoreboard.scale = Vector2.ONE * pulse
 	else:
 		_scoreboard.scale = Vector2.ONE
+		
+func _create_field_walls() -> void:
+	var body := StaticBody3D.new()
+	body.name = "FieldWalls"
+	body.collision_layer = 1
+	body.collision_mask = 68
+
+	var seg_length := touchline_z - goal_half_width
+	var seg_center_z := goal_half_width + seg_length * 0.5
+	var field_len := right_goal_line_x - left_goal_line_x
+
+	# Laterais
+	_add_field_wall(body, "SideNorth",
+		Vector3(left_goal_line_x + field_len * 0.5, 0.5, -(touchline_z + 0.5)),
+		Vector3(field_len, 2.0, 1.0))
+	_add_field_wall(body, "SideSouth",
+		Vector3(left_goal_line_x + field_len * 0.5, 0.5, touchline_z + 0.5),
+		Vector3(field_len, 2.0, 1.0))
+
+	# Linhas de fundo com abertura do gol
+	_add_field_wall(body, "EndLeftNorth",
+		Vector3(left_goal_line_x - 0.5, 0.5, -seg_center_z),
+		Vector3(1.0, 2.0, seg_length))
+	_add_field_wall(body, "EndLeftSouth",
+		Vector3(left_goal_line_x - 0.5, 0.5, seg_center_z),
+		Vector3(1.0, 2.0, seg_length))
+	_add_field_wall(body, "EndRightNorth",
+		Vector3(right_goal_line_x + 0.5, 0.5, -seg_center_z),
+		Vector3(1.0, 2.0, seg_length))
+	_add_field_wall(body, "EndRightSouth",
+		Vector3(right_goal_line_x + 0.5, 0.5, seg_center_z),
+		Vector3(1.0, 2.0, seg_length))
+
+	add_child(body)
+	print("FieldWalls criado: ", body.get_child_count(), " paredes")
+
+func _add_field_wall(parent: Node, wall_name: String, pos: Vector3, size: Vector3) -> void:
+	var shape := BoxShape3D.new()
+	shape.size = size
+	var col := CollisionShape3D.new()
+	col.name = wall_name
+	col.position = pos
+	col.shape = shape
+	parent.add_child(col)
