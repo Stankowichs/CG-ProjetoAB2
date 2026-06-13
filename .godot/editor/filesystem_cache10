@@ -1,9 +1,10 @@
 63f7b34db8d8cdea90c76aacccf841ec
-::res://::1781369216
+::res://::1781379597
 icon.svg::CompressedTexture2D::5256268407987331753::1781280304::1781280304::1::::<><><>0<>0<>c60719af9bfdffb109d3120eaba7e92b<>res://.godot/imported/icon.svg-218a8f2b3041327d8a5756f3a245f83b.ctex::
 placar.png::CompressedTexture2D::5469862508935291874::1781304738::1781304979::1::::<><><>0<>0<>8ca93643c3e82cb9c860c8e26bf60c8e<>res://.godot/imported/placar.png-f623d48e6ece9254a416cbd1f6c19b03.ctex::
 README.md::TextFile::-1::1781280304::0::1::::<><><>0<>0<><>::
-::res://anims/::1781361712
+::res://anims/::1781370145
+hulk_keeper_anims.res::AnimationLibrary::-1::1781370145::0::1::::<><><>0<>0<><>::
 ronaldo_anims.res::AnimationLibrary::-1::1781296649::0::1::::<><><>0<>0<><>::
 ::res://anims/goalkeeper_mixamo/::1781361737
 Goalkeeper Diving Save-2.fbx::PackedScene::6434026098503527436::1781361624::1781361737::1::::<><><>0<>0<>ae0a5c549483b4b170824cc196d0bb1a<>res://.godot/imported/Goalkeeper Diving Save-2.fbx-11fc19b7996625466627911b5ae3ad40.scn::
@@ -268,15 +269,16 @@ body_ao.jpeg::CompressedTexture2D::3201131341023572368::1669558742::1781361737::
 body_d.jpeg::CompressedTexture2D::1363270926257710536::1669558744::1781361737::1::::<><><>0<>0<>3d868b97209ef012213e54ac5bb97497<>res://.godot/imported/body_d.jpeg-be207a16e3ede301364cce922833859e.ctex::
 body_n.jpeg::CompressedTexture2D::7043790630517900914::1669558742::1781361737::1::::<><><>0<>0<>0efec535642f26c0141ddae67b3afb94<>res://.godot/imported/body_n.jpeg-3d9307098e7f07f7a587621aef870e5a.ctex::
 body_s.jpeg::CompressedTexture2D::6839751870109524879::1669558744::1781361737::1::::<><><>0<>0<>91d0c267c36eb86421d92eb106a07658<>res://.godot/imported/body_s.jpeg-10c7fb8624b15f31f29f5a332cda6902.ctex::
-::res://scenes/::1781364043
-Main.tscn::PackedScene::168495289208767::1781364043::0::1::::<><><>0<>0<><>::uid://b1player2024::::res://scenes/Player.tscn<>uid://7fdph5pkg3of::::res://scripts/StarSpin.gd<>uid://byqnds1qocuuu::::res://models/stadium.glb<>uid://7wyxwqi8urrv::::res://models/star.glb<>uid://njyxol33x0tl::::res://models/player_yellow.glb<>uid://bes5vt4iwubv6::::res://models/player_red.glb<>res://models/hulk_keeper_red.glb<>res://models/hulk_keeper_yellow.glb<>res://scripts/KeeperStandStill.gd<>uid://bnes8pvt6xssv::::res://scripts/StadiumLights.gd<>uid://cfkv5gykf5um0::::res://scripts/BroadcastCamera.gd<>uid://cyv0konvdhwdg::::res://scripts/StadiumColliders.gd<>uid://dycrafsv0rxyg::::res://models/ball.glb<>res://scripts/Main.gd
+::res://scenes/::1781371957
+Main.tscn::PackedScene::168495289208767::1781371957::0::1::::<><><>0<>0<><>::uid://b1player2024::::res://scenes/Player.tscn<>uid://7fdph5pkg3of::::res://scripts/StarSpin.gd<>uid://byqnds1qocuuu::::res://models/stadium.glb<>uid://7wyxwqi8urrv::::res://models/star.glb<>uid://njyxol33x0tl::::res://models/player_yellow.glb<>uid://bes5vt4iwubv6::::res://models/player_red.glb<>res://models/hulk_keeper_red.glb<>res://models/hulk_keeper_yellow.glb<>res://scripts/KeeperStandStill.gd<>uid://bnes8pvt6xssv::::res://scripts/StadiumLights.gd<>uid://cfkv5gykf5um0::::res://scripts/BroadcastCamera.gd<>uid://cyv0konvdhwdg::::res://scripts/StadiumColliders.gd<>uid://dycrafsv0rxyg::::res://models/ball.glb<>res://scripts/Main.gd
 Player.tscn::PackedScene::124793101148893823::1781308561::0::1::::<><><>0<>0<><>::uid://blns5w0yk6mxw::::res://scripts/Player.gd<>uid://fpnka2fj6xf2::::res://models/ronaldo.glb
-::res://scripts/::1781363743
+::res://scripts/::1781372367
 bake_anims.gd::GDScript::1307646540111467703::1781296644::0::1::::<>SceneTree<><>0<>0<><>::
+bake_keeper_anims.gd::GDScript::6088562966203759763::1781370102::0::1::::<>SceneTree<><>0<>0<><>::
 BroadcastCamera.gd::GDScript::5145758346459849857::1781280304::0::1::::<>Camera3D<><>0<>0<><>::
 GroundShadow.gd::GDScript::2493160992293340031::1781280304::0::1::::<>Node3D<><>0<>0<><>::
 KeeperStandStill.gd::GDScript::6494926637035355253::1781369048::0::1::::<>Node3D<><>0<>0<><>::
-Main.gd::GDScript::7943473539686699291::1781369031::0::1::::<>Node3D<><>0<>0<><>::
+Main.gd::GDScript::7943473539686699291::1781379401::0::1::::<>Node3D<><>0<>0<><>::
 Player.gd::GDScript::3186482549440037804::1781312358::0::1::::<>CharacterBody3D<><>0<>0<><>::
 StadiumColliders.gd::GDScript::6502262086660258188::1781303563::0::1::::<>Node3D<><>0<>0<><>::
 StadiumLights.gd::GDScript::3308285820269188873::1781280304::0::1::::<>Node3D<><>0<>0<><>::
@@ -294,4 +296,4 @@ Material_1_Normal.png::CompressedTexture2D::4746091913978268272::1781280304::178
 Material_2_BaseColor.png::CompressedTexture2D::9127810696579028549::1781280304::1781280304::1::::<><><>0<>0<>435b008a8bc4197241a08e9e86aee49f<>res://.godot/imported/Material_2_BaseColor.png-562ffd0cbc2d0a56c085e95d8ecaa70b.s3tc.ctex::
 Material_2_Emissive.png::CompressedTexture2D::7667106338207177708::1781280304::1781280304::1::::<><><>0<>0<>17d3a5643d75463f9888179e1dd975bb<>res://.godot/imported/Material_2_Emissive.png-8fb79c8bf03c3b18e42ade93260d9f23.ctex::
 Material_2_Normal.png::CompressedTexture2D::7945278495156397936::1781280304::1781280304::1::::<><><>0<>0<>9d14c8140cac7a28d594b7aa44216919<>res://.godot/imported/Material_2_Normal.png-cba00d3d6d44e17b61225ea256cea826.ctex::
-::res://tools/::1781369059
+::res://tools/::1781379171

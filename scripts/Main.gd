@@ -32,6 +32,7 @@ const KEEPER_THROW_BONE := &"mixamorig_RightHand"   # mão que segura a bola no 
 @export var yellow_tackle_power: float = 8.5
 @export var ai_body_radius: float = 0.62
 @export var ai_separation_distance: float = 1.55
+@export var ai_separation_push: float = 0.22
 @export var yellow_recovery_pass_power: float = 9.0
 @export var red_counter_tackle_distance: float = 1.75
 @export var red_counter_tackle_power: float = 8.0
@@ -44,10 +45,20 @@ const KEEPER_THROW_BONE := &"mixamorig_RightHand"   # mão que segura a bola no 
 @export var ai_think_turn_time: float = 0.28
 @export var red_think_kick_power: float = 15.5
 @export var yellow_think_kick_power: float = 12.5
+@export var block_follow_x: float = 0.18
+@export var block_follow_z: float = 0.42
+@export var block_max_x_shift: float = 8.0
+@export var block_max_z_shift: float = 12.0
+@export var block_lane_width: float = 7.5
+@export var support_run_depth: float = 9.0
+@export var ai_anim_blend: float = 0.28
+@export var ai_action_anim_blend: float = 0.20
+@export var ai_face_ball_weight: float = 0.82
+@export var ai_face_rotate_speed: float = 7.0
 
 @export_group("Visualização de colisão")
 @export var show_collision_radii: bool = true
-@export var player_body_radius: float = 0.4
+@export var player_body_radius: float = 0.52
 @export var collision_radius_visual_alpha: float = 0.22
 @export var collision_radius_visual_y: float = 0.035
 
@@ -62,9 +73,13 @@ const KEEPER_THROW_BONE := &"mixamorig_RightHand"   # mão que segura a bola no 
 @export var keeper_ground_y: float = 0.26     # compensa a origem do GLB do Hulk, evitando ficar enterrado
 @export var keeper_body_radius: float = 0.82  # colisor do goleiro (maior = pega/desvia melhor)
 @export var keeper_throw_windup: float = 0.85 # tempo com a bola na mão antes de soltar (anim Throw)
-@export var keeper_throw_min_power: float = 7.0
-@export var keeper_throw_max_power: float = 12.0
+@export var keeper_throw_min_power: float = 5.8
+@export var keeper_throw_max_power: float = 9.5
 @export var keeper_hand_lift: float = 0.08    # leve ajuste da bola na mão
+@export var keeper_area_depth: float = 16.0
+@export var keeper_area_half_width: float = 18.0
+@export var keeper_area_clear_margin: float = 1.5
+@export var keeper_clear_area_speed: float = 7.0
 
 var _bra_score: int = 0
 var _mar_score: int = 0
@@ -92,6 +107,7 @@ var _ball_holder: Node3D = null          # goleiro que está com a bola na mão 
 var _hold_timer: float = 0.0             # tempo restante segurando a bola antes de soltar
 var _hold_target: Node3D = null          # pra quem o goleiro vai arremessar
 var _hold_line_x: float = 0.0            # linha do gol do goleiro que está segurando
+var _hold_throw_started: bool = false
 
 @onready var _ball: RigidBody3D = $Ball
 @onready var _player: Node3D = $Player
@@ -213,6 +229,7 @@ func _reset_ball(position: Vector3) -> void:
 	_ball_holder = null
 	_hold_target = null
 	_hold_timer = 0.0
+	_hold_throw_started = false
 	_ball.freeze = true
 	_ball.global_position = position
 	_ball.global_rotation = Vector3.ZERO
@@ -262,6 +279,7 @@ func _setup_ai_animation(player_node: Node3D) -> void:
 		return
 
 	_ai_animation_players[player_node.get_instance_id()] = anim
+	anim.playback_process_mode = AnimationPlayer.ANIMATION_PROCESS_PHYSICS
 	for anim_name in [&"Idle", &"Running"]:
 		if anim.has_animation(anim_name):
 			anim.get_animation(anim_name).loop_mode = Animation.LOOP_LINEAR
@@ -405,6 +423,12 @@ func _update_match_ai(delta: float) -> void:
 		_ai_think_cooldowns[key] = maxf(float(_ai_think_cooldowns[key]) - delta, 0.0)
 	_red_dribble_phase += delta
 
+	if _ball_holder != null:
+		_update_players_for_keeper_throw(delta)
+		_update_goalkeeper(_yellow_keeper, left_goal_line_x + keeper_line_offset, delta)
+		_update_goalkeeper(_red_defender, right_goal_line_x - keeper_line_offset, delta)
+		return
+
 	_update_yellow_defense(delta)
 	_update_red_team(delta)
 	_update_goalkeeper(_yellow_keeper, left_goal_line_x + keeper_line_offset, delta)
@@ -417,6 +441,7 @@ func _update_yellow_defense(delta: float) -> void:
 	var red_carrier := _get_red_ball_carrier()
 	var red_has_ball := red_carrier != null
 	var brazil_carrier := _get_brazil_ball_carrier()
+	var player_controls := _player_controls_ball()
 	var closest_yellow := _get_closest_player_to_ball([_yellow_defender, _yellow_mid_left, _yellow_mid_right])
 
 	for index in _yellow_defense.size():
@@ -427,11 +452,20 @@ func _update_yellow_defense(delta: float) -> void:
 
 		if _update_ai_think_kick(player_node, delta, yellow_pressure_speed):
 			continue
-		if not red_has_ball and brazil_carrier == player_node and _start_ai_think_kick(player_node, _player, "yellow", yellow_think_kick_power):
+		if not player_controls and not red_has_ball and brazil_carrier == player_node and _start_ai_think_kick(player_node, _player, "yellow", yellow_think_kick_power):
 			_update_ai_think_kick(player_node, delta, yellow_pressure_speed)
 			continue
 
 		var home := slot["home"] as Vector3
+		var lane_side := float(index - 1)
+
+		if player_controls:
+			var player_pos := _player.global_position
+			player_pos.y = 0.0
+			var support_offset := Vector3(-4.0 - index * 1.8, 0.0, lane_side * block_lane_width)
+			var support_target := _midfielder_block_target(home, player_pos + support_offset, lane_side)
+			_move_ai_player(player_node, support_target, yellow_defense_speed, delta)
+			continue
 
 		if red_has_ball:
 			var carrier_pos := red_carrier.global_position
@@ -439,16 +473,16 @@ func _update_yellow_defense(delta: float) -> void:
 			var target := carrier_pos
 			if player_node != closest_yellow:
 				var cover_z := clampf(carrier_pos.z + (index - 1) * 3.0, -18.0, 18.0)
-				target = Vector3(clampf(carrier_pos.x + 2.5 + index * 0.8, home.x - 3.0, home.x + 10.0), 0.0, cover_z)
+				target = _midfielder_block_target(home, Vector3(carrier_pos.x + 2.5 + index * 0.8, 0.0, cover_z), lane_side)
 			target.x = minf(target.x, home.x + 11.0)
 			target.z = clampf(target.z, home.z - 11.0, home.z + 11.0)
 			_move_ai_player(player_node, target, yellow_pressure_speed, delta)
-			_try_yellow_tackle(player_node, red_carrier)
+			_try_yellow_tackle(player_node, red_carrier, delta)
 		else:
 			if player_node == closest_yellow:
 				_move_ai_player(player_node, ball_pos, yellow_pressure_speed, delta)
 			else:
-				var support := home.lerp(ball_pos, 0.32)
+				var support := _midfielder_block_target(home, ball_pos, lane_side)
 				support.z += float(index - 1) * 4.0
 				support.x = clampf(support.x, home.x - 3.0, home.x + 10.0)
 				support.z = clampf(support.z, -22.0, 22.0)
@@ -528,11 +562,12 @@ func _keeper_catch(keeper: Node3D, line_x: float) -> void:
 	_ball_holder = keeper
 	_hold_timer = keeper_throw_windup
 	_hold_line_x = line_x
-	_hold_target = _player if keeper == _yellow_keeper else _red_attacker
+	_hold_target = _player
+	_hold_throw_started = false
 	_ball.freeze = true
 	_ball.linear_velocity = Vector3.ZERO
 	_ball.angular_velocity = Vector3.ZERO
-	_play_ai_anim(keeper, &"Throw", true)
+	_play_ai_anim(keeper, &"Idle", true)
 	_keeper_action_cd[keeper.get_instance_id()] = keeper_action_cooldown
 
 
@@ -544,6 +579,16 @@ func _update_keeper_hold(keeper: Node3D, delta: float) -> void:
 		_ball.global_position = hand.global_position + Vector3.UP * keeper_hand_lift
 		_ball.linear_velocity = Vector3.ZERO
 		_ball.angular_velocity = Vector3.ZERO
+
+	if not _keeper_area_clear_for_throw():
+		_hold_timer = keeper_throw_windup
+		_set_ai_motion_anim(keeper, false)
+		return
+
+	if not _hold_throw_started:
+		_hold_throw_started = true
+		_hold_timer = keeper_throw_windup
+		_play_ai_anim(keeper, &"Throw", true)
 
 	_hold_timer -= delta
 	if _hold_timer <= 0.0:
@@ -560,12 +605,12 @@ func _keeper_release(keeper: Node3D) -> void:
 	var from := _ball.global_position
 	var to: Vector3
 	if _hold_target != null and is_instance_valid(_hold_target):
-		to = _hold_target.global_position + Vector3(0.0, 0.7, 0.0)
+		to = _hold_target.global_position + Vector3(0.0, 0.55, 0.0)
 		var tvel: Variant = _hold_target.get("velocity")
 		if tvel is Vector3:
-			to += Vector3((tvel as Vector3).x, 0.0, (tvel as Vector3).z) * 0.25
+			to += Vector3((tvel as Vector3).x, 0.0, (tvel as Vector3).z) * 0.10
 	else:
-		to = Vector3(-signf(_hold_line_x) * 16.0, 0.7, 0.0)
+		to = Vector3(-signf(_hold_line_x) * 16.0, 0.55, 0.0)
 
 	var dir := to - from
 	var flat := Vector3(dir.x, 0.0, dir.z)
@@ -582,7 +627,68 @@ func _keeper_release(keeper: Node3D) -> void:
 
 	_ball_holder = null
 	_hold_target = null
+	_hold_throw_started = false
 	_keeper_action_cd[keeper.get_instance_id()] = keeper_action_cooldown
+
+
+func _update_players_for_keeper_throw(delta: float) -> void:
+	var players := [_yellow_defender, _yellow_mid_left, _yellow_mid_right, _red_mid_left, _red_mid_right, _red_attacker]
+	for index in players.size():
+		var player_node := players[index] as Node3D
+		if player_node == null:
+			continue
+
+		var target := _keeper_area_exit_target(player_node, index)
+		_move_ai_player(player_node, target, keeper_clear_area_speed, delta)
+
+
+func _keeper_area_clear_for_throw() -> bool:
+	for player_node in [_yellow_defender, _yellow_mid_left, _yellow_mid_right, _red_mid_left, _red_mid_right, _red_attacker]:
+		if player_node == null:
+			continue
+		if _is_inside_keeper_area(player_node.global_position, keeper_area_clear_margin):
+			return false
+	return true
+
+
+func _keeper_area_exit_target(player_node: Node3D, index: int) -> Vector3:
+	var pos := player_node.global_position
+	pos.y = 0.0
+	var goal_sign := signf(_hold_line_x)
+	if goal_sign == 0.0:
+		goal_sign = -1.0
+
+	var clear_x := _keeper_area_boundary_x(keeper_area_clear_margin) - goal_sign * (2.0 + float(index % 3) * 1.2)
+	var lane_z := clampf(pos.z, -keeper_area_half_width - 3.0, keeper_area_half_width + 3.0)
+	if absf(lane_z) < keeper_area_half_width - 2.0:
+		var side := -1.0 if index % 2 == 0 else 1.0
+		lane_z = side * (keeper_area_half_width + 2.0 + float(index % 3) * 1.4)
+
+	return Vector3(clear_x, 0.0, clampf(lane_z, -touchline_z + 4.0, touchline_z - 4.0))
+
+
+func _is_inside_keeper_area(position: Vector3, margin: float = 0.0) -> bool:
+	var goal_sign := signf(_hold_line_x)
+	if goal_sign == 0.0:
+		goal_sign = -1.0
+
+	if absf(position.z) > keeper_area_half_width + margin:
+		return false
+
+	var boundary_x := _keeper_area_boundary_x(margin)
+	if goal_sign < 0.0:
+		return position.x <= boundary_x
+	return position.x >= boundary_x
+
+
+func _keeper_area_boundary_x(margin: float = 0.0) -> float:
+	var goal_sign := signf(_hold_line_x)
+	if goal_sign == 0.0:
+		goal_sign = -1.0
+
+	if goal_sign < 0.0:
+		return left_goal_line_x + keeper_area_depth + margin
+	return right_goal_line_x - keeper_area_depth - margin
 
 
 func _update_red_midfielder(player_node: Node3D, home: Vector3, ball_pos: Vector3, red_has_ball: bool, red_carrier: Node3D, brazil_carrier: Node3D, closest_red: Node3D, delta: float) -> void:
@@ -603,16 +709,19 @@ func _update_red_midfielder(player_node: Node3D, home: Vector3, ball_pos: Vector
 		var carrier_pos := brazil_carrier.global_position
 		carrier_pos.y = 0.0
 		var side := -1.0 if home.z < 0.0 else 1.0
-		var press_target := carrier_pos if player_node == closest_red else carrier_pos + Vector3(1.6, 0.0, side * 2.2)
+		var press_target := carrier_pos if player_node == closest_red else _block_target(home, carrier_pos + Vector3(1.6, 0.0, side * 4.0))
 		_move_ai_player(player_node, press_target, red_midfielder_speed * 1.05, delta)
-		_try_red_tackle(player_node, brazil_carrier)
+		_try_red_tackle(player_node, brazil_carrier, delta)
 		return
 
 	if red_has_ball and red_carrier != player_node:
 		var side := -1.0 if home.z < 0.0 else 1.0
-		var support_x := clampf(ball_pos.x + 4.5, left_goal_line_x + 14.0, 20.0)
-		var support_z := clampf(ball_pos.z + side * 5.0, -18.0, 18.0)
-		_move_ai_player(player_node, Vector3(support_x, 0.0, support_z), red_midfielder_speed * 0.78, delta)
+		var support_x := ball_pos.x + 5.0
+		if red_carrier == _red_attacker:
+			support_x = ball_pos.x + support_run_depth
+		var support_z := ball_pos.z + side * block_lane_width
+		var support_target := _midfielder_block_target(home, Vector3(support_x, 0.0, support_z), side)
+		_move_ai_player(player_node, support_target, red_midfielder_speed * 0.82, delta)
 		return
 
 	if ball_near_midfield and player_node == closest_red and not _red_attacker_controls_ball():
@@ -622,8 +731,8 @@ func _update_red_midfielder(player_node: Node3D, home: Vector3, ball_pos: Vector
 			_red_pass_cooldown = 1.1
 		return
 
-	var support_shift := Vector3(clampf((ball_pos.x - home.x) * 0.10, -5.0, 4.0), 0.0, clampf((ball_pos.z - home.z) * 0.18, -5.0, 5.0))
-	_move_ai_player(player_node, home + support_shift, red_midfielder_speed * 0.72, delta)
+	var default_side := -1.0 if home.z < 0.0 else 1.0
+	_move_ai_player(player_node, _midfielder_block_target(home, ball_pos, default_side), red_midfielder_speed * 0.72, delta)
 
 
 func _update_red_attacker(ball_pos: Vector3, red_has_ball: bool, red_carrier: Node3D, brazil_carrier: Node3D, closest_red: Node3D, delta: float) -> void:
@@ -638,8 +747,11 @@ func _update_red_attacker(ball_pos: Vector3, red_has_ball: bool, red_carrier: No
 	if brazil_carrier != null and not red_has_ball:
 		var carrier_pos := brazil_carrier.global_position
 		carrier_pos.y = 0.0
-		_move_ai_player(_red_attacker, carrier_pos + Vector3(1.0, 0.0, 0.0), red_attacker_speed * 0.98, delta)
-		_try_red_tackle(_red_attacker, brazil_carrier)
+		var press_target := carrier_pos + Vector3(1.0, 0.0, 0.0)
+		if closest_red != _red_attacker:
+			press_target = _block_target(Vector3(8.0, 0.0, 0.0), carrier_pos + Vector3(-7.0, 0.0, 0.0))
+		_move_ai_player(_red_attacker, press_target, red_attacker_speed * 0.98, delta)
+		_try_red_tackle(_red_attacker, brazil_carrier, delta)
 		return
 
 	if red_has_ball and red_carrier != _red_attacker:
@@ -734,7 +846,40 @@ func _get_closest_player_to_ball(players: Array) -> Node3D:
 	return best_player
 
 
-func _try_yellow_tackle(player_node: Node3D, red_carrier: Node3D) -> void:
+func _player_controls_ball() -> bool:
+	if _player == null or _ball == null:
+		return false
+	if not Input.is_action_pressed("control_ball"):
+		return false
+
+	var control_radius := 1.25
+	var player_control_distance: Variant = _player.get("control_distance")
+	if player_control_distance is float:
+		control_radius = float(player_control_distance) + 0.55
+	return _ground_distance(_player.global_position, _ball_ground_position()) <= control_radius
+
+
+func _block_target(home: Vector3, anchor: Vector3) -> Vector3:
+	home.y = 0.0
+	anchor.y = 0.0
+	var target := home + Vector3(
+		clampf((anchor.x - home.x) * block_follow_x, -block_max_x_shift, block_max_x_shift),
+		0.0,
+		clampf((anchor.z - home.z) * block_follow_z, -block_max_z_shift, block_max_z_shift)
+	)
+	target.x = clampf(target.x, left_goal_line_x + 5.0, right_goal_line_x - 5.0)
+	target.z = clampf(target.z, -touchline_z + 4.0, touchline_z - 4.0)
+	return target
+
+
+func _midfielder_block_target(home: Vector3, anchor: Vector3, lane_side: float) -> Vector3:
+	var target := _block_target(home, anchor)
+	if lane_side != 0.0:
+		target.z = clampf(target.z + lane_side * block_lane_width * 0.32, -touchline_z + 5.0, touchline_z - 5.0)
+	return target
+
+
+func _try_yellow_tackle(player_node: Node3D, red_carrier: Node3D, delta: float) -> void:
 	if player_node == null or red_carrier == null or _ball == null:
 		return
 
@@ -747,13 +892,13 @@ func _try_yellow_tackle(player_node: Node3D, red_carrier: Node3D) -> void:
 	if player_to_ball > yellow_tackle_distance and player_to_carrier > yellow_tackle_distance + 0.35:
 		return
 
-	_snap_ai_player_toward(player_node, _player.global_position)
+	_face_ai_player(player_node, red_carrier.global_position, delta)
 	_play_ai_anim(player_node, &"Kick", true)
 	_finish_yellow_tackle(player_node)
 	_yellow_tackle_cooldowns[key] = 1.15
 
 
-func _try_red_tackle(player_node: Node3D, brazil_carrier: Node3D) -> void:
+func _try_red_tackle(player_node: Node3D, brazil_carrier: Node3D, delta: float) -> void:
 	if player_node == null or brazil_carrier == null or _ball == null:
 		return
 
@@ -769,6 +914,7 @@ func _try_red_tackle(player_node: Node3D, brazil_carrier: Node3D) -> void:
 	var target := Vector3(left_goal_line_x + 12.0, 0.55, clampf(_ball.global_position.z * 0.4, -12.0, 12.0))
 	if _red_attacker != null and player_node != _red_attacker:
 		target = _red_attacker.global_position + Vector3(-5.0, 0.55, 0.0)
+	_face_ai_player(player_node, brazil_carrier.global_position, delta)
 	_finish_red_tackle(player_node, target)
 	_red_tackle_cooldowns[key] = 1.05
 
@@ -815,7 +961,6 @@ func _finish_red_tackle(player_node: Node3D, target: Vector3) -> void:
 	if loser != null:
 		_stun_ai_player(loser, ai_recovery_stun)
 
-	_snap_ai_player_toward(player_node, target)
 	_ball.sleeping = false
 	_start_ai_think_kick(player_node, _red_attacker if player_node != _red_attacker else null, "red", red_think_kick_power)
 
@@ -889,7 +1034,6 @@ func _update_ai_think_kick(player_node: Node3D, delta: float, speed: float) -> b
 		_set_ai_motion_anim(player_node, false)
 		plan["timer"] = float(plan["timer"]) - delta
 		if float(plan["timer"]) <= 0.0:
-			_snap_ai_player_toward(player_node, target)
 			_play_ai_anim(player_node, &"Kick", true)
 			_soft_touch_ball_toward(target, float(plan.get("power", red_think_kick_power)), 0.08)
 			if team == "red" and target_node == null:
@@ -990,7 +1134,7 @@ func _move_ai_player(player_node: Node3D, target: Vector3, speed: float, delta: 
 	# para de correr, mas continua encarando o alvo pra logo voltar a pressionar.
 	if _is_ai_stunned(player_node):
 		_set_ai_motion_anim(player_node, false)
-		_face_ai_player(player_node, target, delta)
+		_face_ai_player_focus(player_node, target, delta)
 		return
 
 	target.x = clampf(target.x, left_goal_line_x + 5.0, right_goal_line_x - 5.0)
@@ -999,14 +1143,19 @@ func _move_ai_player(player_node: Node3D, target: Vector3, speed: float, delta: 
 
 	var pos := player_node.global_position
 	pos.y = 0.0
+	var distance_to_target := _ground_distance(pos, target)
+	if distance_to_target < 0.08:
+		_set_ai_motion_anim(player_node, false)
+		_face_ai_player_focus(player_node, target, delta)
+		return
+
 	var next_pos := pos.move_toward(target, speed * delta)
 	next_pos = _separate_ai_position(player_node, next_pos)
 	player_node.global_position = next_pos
 
-	var moved := _ground_distance(pos, next_pos) > 0.015
+	var moved := _ground_distance(pos, next_pos) > 0.025
 	_set_ai_motion_anim(player_node, moved)
-	if moved:
-		_face_ai_player(player_node, target, delta)
+	_face_ai_player_focus(player_node, target, delta)
 
 
 func _separate_ai_position(player_node: Node3D, desired_pos: Vector3) -> Vector3:
@@ -1026,7 +1175,7 @@ func _separate_ai_position(player_node: Node3D, desired_pos: Vector3) -> Vector3
 		separation += away.normalized() * ((ai_separation_distance - distance) / ai_separation_distance)
 
 	if separation.length() > 0.01:
-		desired_pos += separation.normalized() * minf(separation.length(), 0.65)
+		desired_pos += separation.normalized() * minf(separation.length(), ai_separation_push)
 
 	desired_pos.x = clampf(desired_pos.x, left_goal_line_x + 5.0, right_goal_line_x - 5.0)
 	desired_pos.y = 0.0
@@ -1087,7 +1236,25 @@ func _face_ai_player(player_node: Node3D, target: Vector3, delta: float) -> void
 		return
 
 	var target_yaw := atan2(dir.x, dir.z)
-	player_node.rotation.y = lerp_angle(player_node.rotation.y, target_yaw, 10.0 * delta)
+	player_node.rotation.y = lerp_angle(player_node.rotation.y, target_yaw, ai_face_rotate_speed * delta)
+
+
+func _face_ai_player_focus(player_node: Node3D, move_target: Vector3, delta: float) -> void:
+	if player_node == null:
+		return
+
+	var focus := move_target
+	if _ball != null:
+		var ball_pos := _ball_ground_position()
+		var player_pos := player_node.global_position
+		player_pos.y = 0.0
+		var distance_to_ball := _ground_distance(player_pos, ball_pos)
+		var weight := ai_face_ball_weight
+		if distance_to_ball < 1.8:
+			weight = 1.0
+		focus = move_target.lerp(ball_pos, weight)
+
+	_face_ai_player(player_node, focus, delta)
 
 
 func _snap_ai_player_toward(player_node: Node3D, target: Vector3) -> void:
@@ -1141,10 +1308,11 @@ func _play_ai_anim(player_node: Node3D, anim_name: StringName, force: bool = fal
 		else:
 			return false
 
-	if not force and StringName(anim.current_animation) == target:
+	if not force and anim.is_playing() and StringName(anim.current_animation) == target:
 		return true
 
-	anim.play(target, 0.14)
+	var blend := ai_action_anim_blend if force else ai_anim_blend
+	anim.play(target, blend)
 	return true
 
 
@@ -1162,6 +1330,7 @@ func _reset_ai_for_restart() -> void:
 	_ball_holder = null
 	_hold_target = null
 	_hold_timer = 0.0
+	_hold_throw_started = false
 	for slot in _yellow_defense:
 		var player_node := slot["node"] as Node3D
 		if player_node == null:
