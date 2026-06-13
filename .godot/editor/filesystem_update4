@@ -1,4 +1,1 @@
-res://scenes/Main.tscn
-res://scripts/StadiumColliders.gd
 res://scripts/Main.gd
-res://FieldBounds.gd
