@@ -20,6 +20,7 @@ extends Node3D
 @export var wall_thickness: float = 2.0
 @export var wall_height: float = 8.0
 @export var wall_center_y: float = 4.0
+@export var goal_opening_half_width: float = 6.2
 
 var _colliders_created: int = 0
 
@@ -64,18 +65,8 @@ func _create_play_bounds() -> void:
 	root.name = "PlayBounds"
 	add_child(root)
 
-	_add_wall(
-		root,
-		"TouchlineLeft",
-		Vector3(-field_half_width - wall_thickness * 0.5, wall_center_y, 0.0),
-		Vector3(wall_thickness, wall_height, field_half_depth * 2.0 + wall_thickness * 2.0)
-	)
-	_add_wall(
-		root,
-		"TouchlineRight",
-		Vector3(field_half_width + wall_thickness * 0.5, wall_center_y, 0.0),
-		Vector3(wall_thickness, wall_height, field_half_depth * 2.0 + wall_thickness * 2.0)
-	)
+	_add_goal_line_walls(root, -field_half_width - wall_thickness * 0.5, "Left")
+	_add_goal_line_walls(root, field_half_width + wall_thickness * 0.5, "Right")
 	_add_wall(
 		root,
 		"GoalLineNorth",
@@ -87,6 +78,25 @@ func _create_play_bounds() -> void:
 		"GoalLineSouth",
 		Vector3(0.0, wall_center_y, field_half_depth + wall_thickness * 0.5),
 		Vector3(field_half_width * 2.0 + wall_thickness * 2.0, wall_height, wall_thickness)
+	)
+
+
+func _add_goal_line_walls(parent: Node, wall_x: float, side_name: String) -> void:
+	var full_depth := field_half_depth * 2.0 + wall_thickness * 2.0
+	var opening := goal_opening_half_width * 2.0
+	var segment_depth := maxf(0.1, (full_depth - opening) * 0.5)
+	var segment_center_z := goal_opening_half_width + segment_depth * 0.5
+	_add_wall(
+		parent,
+		"GoalLine%sNorthPost" % side_name,
+		Vector3(wall_x, wall_center_y, -segment_center_z),
+		Vector3(wall_thickness, wall_height, segment_depth)
+	)
+	_add_wall(
+		parent,
+		"GoalLine%sSouthPost" % side_name,
+		Vector3(wall_x, wall_center_y, segment_center_z),
+		Vector3(wall_thickness, wall_height, segment_depth)
 	)
 
 

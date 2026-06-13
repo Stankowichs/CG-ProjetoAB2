@@ -10,6 +10,7 @@
 [ext_resource type="Script" uid="uid://cfkv5gykf5um0" path="res://scripts/BroadcastCamera.gd" id="9_broadcast_cam"]
 [ext_resource type="Script" uid="uid://cyv0konvdhwdg" path="res://scripts/StadiumColliders.gd" id="10_stadium_col"]
 [ext_resource type="PackedScene" uid="uid://dycrafsv0rxyg" path="res://models/ball.glb" id="11_ball"]
+[ext_resource type="Script" path="res://scripts/Main.gd" id="12_main"]
 
 [sub_resource type="PhysicalSkyMaterial" id="SkyMat_phys"]
 rayleigh_color = Color(0.32, 0.55, 0.95, 1)
@@ -64,6 +65,7 @@ bounce = 0.55
 radius = 0.3
 
 [node name="Main" type="Node3D" unique_id=1778268074]
+script = ExtResource("12_main")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=551104739]
 environment = SubResource("Env_main")
