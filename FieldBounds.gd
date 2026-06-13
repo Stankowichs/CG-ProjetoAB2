@@ -47,10 +47,10 @@ func _ready() -> void:
 	_add_wall(body, "EndRightSouth",
 		Vector3(field_half_length + wall_thickness * 0.5, wall_center_y, seg_center_z),
 		Vector3(wall_thickness, wall_height, seg_length))
-		
-	add_child(body)
-	
-	for child in body.get_children():
+
+		add_child(body)
+
+		for child in body.get_children():
 		print(child.name, " pos:", child.position, " size:", child.shape.size)
 
 func _add_wall(parent: Node, wall_name: String, pos: Vector3, size: Vector3) -> void:

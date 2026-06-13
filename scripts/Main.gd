@@ -1462,7 +1462,7 @@ func _update_score_pulse(delta: float) -> void:
 		_scoreboard.scale = Vector2.ONE * pulse
 	else:
 		_scoreboard.scale = Vector2.ONE
-		
+
 func _create_field_walls() -> void:
 	var body := StaticBody3D.new()
 	body.name = "FieldWalls"
