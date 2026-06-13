@@ -6,6 +6,9 @@
 [ext_resource type="PackedScene" uid="uid://7wyxwqi8urrv" path="res://models/star.glb" id="4_star"]
 [ext_resource type="PackedScene" uid="uid://njyxol33x0tl" path="res://models/player_yellow.glb" id="5_npc_yellow"]
 [ext_resource type="PackedScene" uid="uid://bes5vt4iwubv6" path="res://models/player_red.glb" id="6_npc_red"]
+[ext_resource type="PackedScene" path="res://models/hulk_keeper_red.glb" id="13_hulk_red"]
+[ext_resource type="PackedScene" path="res://models/hulk_keeper_yellow.glb" id="14_hulk_yellow"]
+[ext_resource type="Script" path="res://scripts/KeeperStandStill.gd" id="15_keeper_still"]
 [ext_resource type="Script" uid="uid://bnes8pvt6xssv" path="res://scripts/StadiumLights.gd" id="7_lights"]
 [ext_resource type="Script" uid="uid://cfkv5gykf5um0" path="res://scripts/BroadcastCamera.gd" id="9_broadcast_cam"]
 [ext_resource type="Script" uid="uid://cyv0konvdhwdg" path="res://scripts/StadiumColliders.gd" id="10_stadium_col"]
@@ -119,8 +122,13 @@ transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -20, 0, -14)
 [node name="TeamYellow_04" parent="." unique_id=1380767476 instance=ExtResource("5_npc_yellow")]
 transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -20, 0, 14)
 
-[node name="TeamRed_Keeper" parent="." unique_id=1722635657 instance=ExtResource("6_npc_red")]
-transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 27.5, 0, 0)
+[node name="TeamYellow_Keeper" parent="." instance=ExtResource("14_hulk_yellow")]
+transform = Transform3D(0, 0, 2, 0, 2, 0, -2, 0, 0, -49, 0.26, 0)
+script = ExtResource("15_keeper_still")
+
+[node name="TeamRed_Keeper" parent="." unique_id=1722635657 instance=ExtResource("13_hulk_red")]
+transform = Transform3D(0, 0, -2, 0, 2, 0, 2, 0, 0, 45.5, 0.26, 0)
+script = ExtResource("15_keeper_still")
 
 [node name="TeamRed_02" parent="." unique_id=343256110 instance=ExtResource("6_npc_red")]
 transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 18, 0, -14)
@@ -136,6 +144,9 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
 collision_layer = 4
 mass = 0.43
 physics_material_override = SubResource("PhysMat_ball")
+continuous_cd = true
+contact_monitor = true
+max_contacts_reported = 4
 linear_damp = 0.5
 angular_damp = 0.7
 

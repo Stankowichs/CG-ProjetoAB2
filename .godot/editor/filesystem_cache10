@@ -1,10 +1,16 @@
 63f7b34db8d8cdea90c76aacccf841ec
-::res://::1781316499
+::res://::1781369216
 icon.svg::CompressedTexture2D::5256268407987331753::1781280304::1781280304::1::::<><><>0<>0<>c60719af9bfdffb109d3120eaba7e92b<>res://.godot/imported/icon.svg-218a8f2b3041327d8a5756f3a245f83b.ctex::
 placar.png::CompressedTexture2D::5469862508935291874::1781304738::1781304979::1::::<><><>0<>0<>8ca93643c3e82cb9c860c8e26bf60c8e<>res://.godot/imported/placar.png-f623d48e6ece9254a416cbd1f6c19b03.ctex::
 README.md::TextFile::-1::1781280304::0::1::::<><><>0<>0<><>::
-::res://anims/::1781296139
+::res://anims/::1781361712
 ronaldo_anims.res::AnimationLibrary::-1::1781296649::0::1::::<><><>0<>0<><>::
+::res://anims/goalkeeper_mixamo/::1781361737
+Goalkeeper Diving Save-2.fbx::PackedScene::6434026098503527436::1781361624::1781361737::1::::<><><>0<>0<>ae0a5c549483b4b170824cc196d0bb1a<>res://.godot/imported/Goalkeeper Diving Save-2.fbx-11fc19b7996625466627911b5ae3ad40.scn::
+Goalkeeper Diving Save.fbx::PackedScene::5185979117933415996::1781361615::1781361737::1::::<><><>0<>0<>f257d03727efd3cd4af608914cd21887<>res://.godot/imported/Goalkeeper Diving Save.fbx-eda5e773e617db1780a741a5e84b25b6.scn::
+Goalkeeper Idle.fbx::PackedScene::2160490293202094868::1781361660::1781361737::1::::<><><>0<>0<>cc97792dfaf0760b171572ef0712def6<>res://.godot/imported/Goalkeeper Idle.fbx-dfe6ae00837ef6f75fb52b6da35b17d5.scn::
+Goalkeeper Overhand Throw.fbx::PackedScene::3255369378461047213::1781361652::1781361737::1::::<><><>0<>0<>cdfc823183ed80851e8de2616e4656fd<>res://.godot/imported/Goalkeeper Overhand Throw.fbx-898e5222783ff7421d93bdd33bf5a505.scn::
+Sitting Laughing.fbx::PackedScene::7730644415376772364::1781361580::1781361737::1::::<><><>0<>0<>410b84deb8fde46a92fd9a97ec3c776b<>res://.godot/imported/Sitting Laughing.fbx-380f90f8d1e120d8b528ff03780e9801.scn::
 ::res://anims/ronaldo_mixamo/::1781311968
 Kick Soccerball.fbx::PackedScene::1048519343739625445::1781280640::1781281167::1::::<><><>0<>0<>5abb29781554f05f4dd3d898491cf13b<>res://.godot/imported/Kick Soccerball.fbx-20b6f74bd2eeb81c5fa457bda0ed9737.scn::
 Offensive Idle.fbx::PackedScene::5588273430661319457::1781280562::1781281167::1::::<><><>0<>0<>0a922305439bbfc5539275da265aaba2<>res://.godot/imported/Offensive Idle.fbx-741d1327bc9cbaa4fecc63f04314e039.scn::
@@ -15,7 +21,7 @@ Soccer Pass.fbx::PackedScene::6171358259883252354::1781280610::1781281167::1::::
 Soccer Penalty Kick.fbx::PackedScene::1239228662544172858::1781280648::1781281167::1::::<><><>0<>0<>a861a8f26eb1cc83a90e5e25ddf1f176<>res://.godot/imported/Soccer Penalty Kick.fbx-4f692812503c8dcb6b62fa9caa155e09.scn::
 Soccer Tackle.fbx::PackedScene::5022462515436051424::1781311892::1781311968::1::::<><><>0<>0<>25c655b83698570320437d512d1c3e4a<>res://.godot/imported/Soccer Tackle.fbx-d3811069abee092b675f832ef1e07e7c.scn::
 Soccer Trip.fbx::PackedScene::8412384434810822987::1781311898::1781311968::1::::<><><>0<>0<>5dd4116c69a21133e3a49f75e72953b6<>res://.godot/imported/Soccer Trip.fbx-d9ae13e50a6f99d41839a8137921a888.scn::
-::res://models/::1781310774
+::res://models/::1781362144
 al_wakrah_stadium_worldcup_2022.glb::PackedScene::3077481529121018072::1781280304::1781280304::1::::<><><>0<>0<>19bcf92a5ea061139f95976a5e915098<>res://.godot/imported/al_wakrah_stadium_worldcup_2022.glb-6d7f9c70e559a494ff96f4ee7c641684.scn::uid://blxto8l3kog8k::::res://models/al_wakrah_stadium_worldcup_2022_0.png<>uid://djctdqvthjqsm::::res://models/al_wakrah_stadium_worldcup_2022_1.jpg<>uid://dte2bjifisweu::::res://models/al_wakrah_stadium_worldcup_2022_2.png<>uid://dmkvwsr6p1xsm::::res://models/al_wakrah_stadium_worldcup_2022_3.png
 al_wakrah_stadium_worldcup_2022_0.png::CompressedTexture2D::3207159027581580372::1781280304::1781280304::1::::<><><>0<>0<>9fdcbd52f89a26fb6847351b2f1a88c6<>res://.godot/imported/al_wakrah_stadium_worldcup_2022_0.png-944ca28e0d561870d9d5216a009a43b5.s3tc.ctex::
 al_wakrah_stadium_worldcup_2022_1.jpg::CompressedTexture2D::7796250253261486984::1781280304::1781280304::1::::<><><>0<>0<>b22bf1b65666b7352619375d9cca137e<>res://.godot/imported/al_wakrah_stadium_worldcup_2022_1.jpg-47b836cc799065df3fc9d2dfebbd4ecb.s3tc.ctex::
@@ -25,6 +31,8 @@ ball.glb::PackedScene::8848955534188707914::1781280304::1781280304::1::::<><><>0
 ball_Image_0.jpg::CompressedTexture2D::837801092126355382::1781280304::1781280304::1::::<><><>0<>0<>60302b7fb0f5c3c3ddcc9c5153072cc8<>res://.godot/imported/ball_Image_0.jpg-6d2a3a750ebf9b35effd6bf0dd21536e.s3tc.ctex::
 ball_Image_1.jpg::CompressedTexture2D::940705129720661582::1781280304::1781280304::1::::<><><>0<>0<>8f042a9557966c9027f870afe0730fb6<>res://.godot/imported/ball_Image_1.jpg-6a9363dd3bcd2d6e740c78d9bba912af.s3tc.ctex::
 ball_Image_2.jpg::CompressedTexture2D::1275322922407348729::1781280304::1781280304::1::::<><><>0<>0<>09828d60a71c366b6e041c602c69abe9<>res://.godot/imported/ball_Image_2.jpg-724df29e7c49f9f1bb3d61c5b28fcf51.s3tc.ctex::
+hulk_keeper_red.glb::PackedScene::5155867426428353420::1781362071::1781362144::1::::<><><>0<>0<>2ed1ce9e7c4c98cd30f482decd9cc3e1<>res://.godot/imported/hulk_keeper_red.glb-d53b37e70b1fa25bcc8c32ef59825cb8.scn::
+hulk_keeper_yellow.glb::PackedScene::6041908637568357035::1781362073::1781362144::1::::<><><>0<>0<>1c82dbf15abc7f21309f7cdc2b5928d4<>res://.godot/imported/hulk_keeper_yellow.glb-ad93272ceb603d660ee9129bbb11d6f3.scn::
 player.glb::PackedScene::8797483829862939243::1781310017::1781310774::1::::<><><>0<>0<>3e433ff20a4818ad80b8e84c64c91392<>res://.godot/imported/player.glb-874246918b1d1ae729e6f5a64d32052b.scn::uid://4x7l83tgepdm::::res://models/player_Image_6.png<>uid://ckuc16rqyqiiw::::res://models/player_Image_7.png<>uid://ryxrn2y7n7i5::::res://models/player_Image_8.png<>uid://dwlgyxvwk3skq::::res://models/player_Image_9.png<>uid://cslinua7heoj5::::res://models/player_Image_10.png<>uid://choc3s50152l8::::res://models/player_Image_11.png<>uid://b7gxx6jq7kjbd::::res://models/player_Image_12.png<>uid://bhy3v6nuskep1::::res://models/player_Image_13.png<>uid://cjm01mpujek4g::::res://models/player_Image_14.png<>uid://dkjnvq4yim1jc::::res://models/player_Image_15.jpg<>uid://s50mcxmpf31u::::res://models/player_Image_16.png<>uid://7yf0r66u307v::::res://models/player_Image_17.png<>uid://dt0harkg3d24g::::res://models/player_Image_18.png<>uid://cwdg8ora32xqa::::res://models/player_Image_19.png<>uid://cpqul035v523i::::res://models/player_Image_20.png<>uid://vrjm6ld20uyh::::res://models/player_Image_21.png<>uid://cc2qcwdjlhmgm::::res://models/player_Image_22.png<>uid://b3ntixd10qrve::::res://models/player_Image_23.png<>uid://c0665p48qu0eb::::res://models/player_Image_24.png<>uid://bdfux0wqoehis::::res://models/player_Image_25.png<>uid://urfww4s5apeu::::res://models/player_Image_26.png<>uid://ct0jdq6684kn0::::res://models/player_Image_27.png<>uid://ct2mbk325kiu1::::res://models/player_Image_28.png<>uid://cx4oh2q8t82xc::::res://models/player_Image_29.png<>uid://c84g0awy82r3f::::res://models/player_Image_30.jpg<>uid://c2yfld4q5cpjb::::res://models/player_Image_31.png<>uid://bj4q8iibp63ah::::res://models/player_Image_32.png<>uid://bc8ml3bsoe1t1::::res://models/player_Image_33.jpg<>uid://cw6i8p5fhhob4::::res://models/player_Image_34.png<>uid://c738m86kq4uv0::::res://models/player_Image_35.png<>uid://djmmdbye4lg4e::::res://models/player_Image_36.png<>uid://bntmrusuommpb::::res://models/player_Image_37.png<>uid://b0c5sbww4hjc1::::res://models/player_Image_38.png<>uid://uo2ajthnx7k3::::res://models/player_Image_39.png<>uid://bs3ch14u0lvbw::::res://models/player_Image_40.png<>uid://1w5uaaesk44q::::res://models/player_Image_41.png<>uid://driktn0qdqfgn::::res://models/player_Image_42.png<>uid://xnyw4f6sitrj::::res://models/player_Image_43.png<>uid://dstl6f1enu5s4::::res://models/player_Image_44.png<>uid://ongthpnpaf8l::::res://models/player_Image_45.png<>uid://c26nlxox68i8h::::res://models/player_Image_46.png<>uid://dpmcrnio6hv3t::::res://models/player_Image_0.jpg<>uid://d0yaia2kcm7q3::::res://models/player_Image_1.png<>uid://2fhux8fly0ws::::res://models/player_Image_2.png<>uid://lron0lj5co0q::::res://models/player_Image_3.png<>uid://dcyisi6o0l8l7::::res://models/player_Image_4.png<>uid://00qdobok2g08::::res://models/player_Image_5.png
 player_0.jpg::CompressedTexture2D::2284623180817663299::1781280304::1781310770::1::::<><><>0<>0<>659d5e7ab8b71dd6f1b00b9b32002daa<>res://.godot/imported/player_0.jpg-16f3e2d8cbd405908144de9c1ff186a3.s3tc.ctex::
 player_1.png::CompressedTexture2D::3455034468994536345::1781280304::1781310770::1::::<><><>0<>0<>e7eb364f96dd05654f9728245d3a6851<>res://.godot/imported/player_1.png-c72efc4b74c0fe80bd2e6e18f69d9913.s3tc.ctex::
@@ -252,14 +260,23 @@ stadium_Image_4.png::CompressedTexture2D::3115732491059849249::1781280304::17812
 stadium_Image_5.png::CompressedTexture2D::229751085374406968::1781280304::1781280304::1::::<><><>0<>0<>93565a40f1010044d6da6d4145eacf42<>res://.godot/imported/stadium_Image_5.png-e757309444f2ba4bb90695570e2e81c2.s3tc.ctex::
 stadium_Image_6.png::CompressedTexture2D::7108624556673598196::1781280304::1781280304::1::::<><><>0<>0<>5cd4712cf150f7c61f24e971191e5433<>res://.godot/imported/stadium_Image_6.png-94ea64c1769f97a1e63b7abf1ec291ae.s3tc.ctex::
 star.glb::PackedScene::2292958768731521739::1781280304::1781280304::1::::<><><>0<>0<>84f7aa129abb15bd86e0329fa07d46c9<>res://.godot/imported/star.glb-3ffbb93f72ca66a731c3b04204d868f6.scn::
-::res://scenes/::1781308561
-Main.tscn::PackedScene::168495289208767::1781302164::0::1::::<><><>0<>0<><>::uid://b1player2024::::res://scenes/Player.tscn<>uid://7fdph5pkg3of::::res://scripts/StarSpin.gd<>uid://byqnds1qocuuu::::res://models/stadium.glb<>uid://7wyxwqi8urrv::::res://models/star.glb<>uid://njyxol33x0tl::::res://models/player_yellow.glb<>uid://bes5vt4iwubv6::::res://models/player_red.glb<>uid://bnes8pvt6xssv::::res://scripts/StadiumLights.gd<>uid://cfkv5gykf5um0::::res://scripts/BroadcastCamera.gd<>uid://cyv0konvdhwdg::::res://scripts/StadiumColliders.gd<>uid://dycrafsv0rxyg::::res://models/ball.glb<>res://scripts/Main.gd
+::res://models/hulk-defeated-goalkeeper-idle/::1781361486
+::res://models/hulk-defeated-goalkeeper-idle/source/::1781361738
+Defeated.fbx::PackedScene::7970158342939009031::1669558742::1781361738::1::::<><><>0<>0<>4f8d0a8a8e25866c09ece87e59a1732a<>res://.godot/imported/Defeated.fbx-3e4d68236e6af4f3ba2739499dc05fd7.scn::
+::res://models/hulk-defeated-goalkeeper-idle/textures/::1781361737
+body_ao.jpeg::CompressedTexture2D::3201131341023572368::1669558742::1781361737::1::::<><><>0<>0<>82dd97696ba6f08b105c2a079020947a<>res://.godot/imported/body_ao.jpeg-914f069f069e7db88ff20dcc87c1c202.ctex::
+body_d.jpeg::CompressedTexture2D::1363270926257710536::1669558744::1781361737::1::::<><><>0<>0<>3d868b97209ef012213e54ac5bb97497<>res://.godot/imported/body_d.jpeg-be207a16e3ede301364cce922833859e.ctex::
+body_n.jpeg::CompressedTexture2D::7043790630517900914::1669558742::1781361737::1::::<><><>0<>0<>0efec535642f26c0141ddae67b3afb94<>res://.godot/imported/body_n.jpeg-3d9307098e7f07f7a587621aef870e5a.ctex::
+body_s.jpeg::CompressedTexture2D::6839751870109524879::1669558744::1781361737::1::::<><><>0<>0<>91d0c267c36eb86421d92eb106a07658<>res://.godot/imported/body_s.jpeg-10c7fb8624b15f31f29f5a332cda6902.ctex::
+::res://scenes/::1781364043
+Main.tscn::PackedScene::168495289208767::1781364043::0::1::::<><><>0<>0<><>::uid://b1player2024::::res://scenes/Player.tscn<>uid://7fdph5pkg3of::::res://scripts/StarSpin.gd<>uid://byqnds1qocuuu::::res://models/stadium.glb<>uid://7wyxwqi8urrv::::res://models/star.glb<>uid://njyxol33x0tl::::res://models/player_yellow.glb<>uid://bes5vt4iwubv6::::res://models/player_red.glb<>res://models/hulk_keeper_red.glb<>res://models/hulk_keeper_yellow.glb<>res://scripts/KeeperStandStill.gd<>uid://bnes8pvt6xssv::::res://scripts/StadiumLights.gd<>uid://cfkv5gykf5um0::::res://scripts/BroadcastCamera.gd<>uid://cyv0konvdhwdg::::res://scripts/StadiumColliders.gd<>uid://dycrafsv0rxyg::::res://models/ball.glb<>res://scripts/Main.gd
 Player.tscn::PackedScene::124793101148893823::1781308561::0::1::::<><><>0<>0<><>::uid://blns5w0yk6mxw::::res://scripts/Player.gd<>uid://fpnka2fj6xf2::::res://models/ronaldo.glb
-::res://scripts/::1781313575
+::res://scripts/::1781363743
 bake_anims.gd::GDScript::1307646540111467703::1781296644::0::1::::<>SceneTree<><>0<>0<><>::
 BroadcastCamera.gd::GDScript::5145758346459849857::1781280304::0::1::::<>Camera3D<><>0<>0<><>::
 GroundShadow.gd::GDScript::2493160992293340031::1781280304::0::1::::<>Node3D<><>0<>0<><>::
-Main.gd::GDScript::7943473539686699291::1781313575::0::1::::<>Node3D<><>0<>0<><>::
+KeeperStandStill.gd::GDScript::6494926637035355253::1781369048::0::1::::<>Node3D<><>0<>0<><>::
+Main.gd::GDScript::7943473539686699291::1781369031::0::1::::<>Node3D<><>0<>0<><>::
 Player.gd::GDScript::3186482549440037804::1781312358::0::1::::<>CharacterBody3D<><>0<>0<><>::
 StadiumColliders.gd::GDScript::6502262086660258188::1781303563::0::1::::<>Node3D<><>0<>0<><>::
 StadiumLights.gd::GDScript::3308285820269188873::1781280304::0::1::::<>Node3D<><>0<>0<><>::
@@ -277,4 +294,4 @@ Material_1_Normal.png::CompressedTexture2D::4746091913978268272::1781280304::178
 Material_2_BaseColor.png::CompressedTexture2D::9127810696579028549::1781280304::1781280304::1::::<><><>0<>0<>435b008a8bc4197241a08e9e86aee49f<>res://.godot/imported/Material_2_BaseColor.png-562ffd0cbc2d0a56c085e95d8ecaa70b.s3tc.ctex::
 Material_2_Emissive.png::CompressedTexture2D::7667106338207177708::1781280304::1781280304::1::::<><><>0<>0<>17d3a5643d75463f9888179e1dd975bb<>res://.godot/imported/Material_2_Emissive.png-8fb79c8bf03c3b18e42ade93260d9f23.ctex::
 Material_2_Normal.png::CompressedTexture2D::7945278495156397936::1781280304::1781280304::1::::<><><>0<>0<>9d14c8140cac7a28d594b7aa44216919<>res://.godot/imported/Material_2_Normal.png-cba00d3d6d44e17b61225ea256cea826.ctex::
-::res://tools/::1781303984
+::res://tools/::1781369059
