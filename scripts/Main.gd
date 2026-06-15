@@ -9,6 +9,13 @@ const SCOREBOARD_CENTER_OFFSET_X := -350.0
 const KEEPER_ANIM_LIB := "res://anims/hulk_keeper_anims.res"
 const KEEPER_THROW_BONE := &"mixamorig_RightHand"   # mão que segura a bola no arremesso
 
+## Clipes de ação (não-looping): enquanto um deles está genuinamente tocando, a
+## locomoção (Idle/Running) não interrompe. Usado também pelo watchdog de animação.
+const ACTION_ANIMS := {
+	&"Kick": true, &"Pass": true, &"Header": true, &"PenaltyKick": true,
+	&"ScissorKick": true, &"DiveA": true, &"DiveB": true, &"Throw": true,
+}
+
 @export_group("Regras do campo")
 @export var left_goal_line_x: float = -51.5
 @export var right_goal_line_x: float = 48.0
@@ -83,6 +90,30 @@ const KEEPER_THROW_BONE := &"mixamorig_RightHand"   # mão que segura a bola no 
 @export var ai_face_rotate_speed: float = 7.0
 @export var ai_run_anim_min_movement: float = 0.06
 @export var ai_run_anim_min_target_distance: float = 0.18
+## Sincronização da passada com a velocidade real (evita "deslizar"/patinar):
+## a 1.0x a animação Running corresponde a esta velocidade de chão; acima/abaixo
+## o speed_scale acompanha proporcionalmente (clampado pra não exagerar).
+@export var ai_run_anim_reference_speed: float = 6.5
+@export var ai_run_anim_min_speed_scale: float = 0.65
+@export var ai_run_anim_max_speed_scale: float = 1.6
+## Olhar pra bola suavizado: longe (>= far) o peso é ai_face_ball_weight; perto
+## (<= near) encara totalmente a bola; entre os dois interpola sem salto brusco.
+@export var ai_face_ball_near: float = 1.8
+@export var ai_face_ball_far: float = 4.5
+## Histerese de quem pressiona a bola (Fase 2): elege UM jogador por time e o
+## mantém por um tempo mínimo. Outro candidato só "rouba" o papel se estiver bem
+## mais perto (switch_margin) ou se o atual abandonou a jogada (abandon_margin).
+@export var ai_presser_min_hold: float = 0.7      # tempo mínimo segurando o papel (s)
+@export var ai_presser_switch_margin: float = 1.6 # quão mais perto o rival precisa estar pra roubar (m)
+@export var ai_presser_abandon_margin: float = 4.0 # se o atual ficar tão mais longe que isso, troca já (m)
+## Movimento com inércia (Fase 3): a IA acelera/desacelera em vez de teleportar,
+## eliminando viradas instantâneas. arrive_radius = distância em que começa a
+## frear pra não passar do alvo. face_min_speed = velocidade a partir da qual o
+## corpo encara a direção real do movimento (abaixo disso, mantém o foco/alvo).
+@export var ai_accel: float = 30.0
+@export var ai_decel: float = 40.0
+@export var ai_arrive_radius: float = 2.2
+@export var ai_face_min_speed: float = 0.6
 
 @export_group("Visualização de colisão")
 @export var show_collision_radii: bool = false
@@ -130,6 +161,8 @@ var _yellow_restart_grace_timer: float = 0.0
 var _ai_collision_radii: Dictionary = {}
 var _ai_kick_plans: Dictionary = {}
 var _ai_think_cooldowns: Dictionary = {}
+var _presser_claims: Dictionary = {}     # "yellow"/"red" -> {"node": Node3D, "timer": float} (histerese de quem pressiona)
+var _ai_velocities: Dictionary = {}      # instance_id -> Vector3 (velocidade no plano XZ; movimento com inércia)
 var _keeper_action_cd: Dictionary = {}   # instance_id -> tempo até poder mergulhar/repor de novo
 var _keeper_dive_axis: Dictionary = {}   # instance_id -> sinal de Z (mundo) que o clipe DiveA cobre
 var _keeper_hand: Dictionary = {}        # instance_id -> BoneAttachment3D na mão do goleiro
@@ -317,6 +350,8 @@ func _reset_match_state_for_restart() -> void:
 	_stun_timers.clear()
 	_ai_kick_plans.clear()
 	_ai_think_cooldowns.clear()
+	_presser_claims.clear()
+	_ai_velocities.clear()
 	_yellow_tackle_cooldowns.clear()
 	_red_tackle_cooldowns.clear()
 	_red_pass_cooldown = 0.0
@@ -700,6 +735,24 @@ func _update_match_ai(delta: float) -> void:
 	_update_goalkeeper(_yellow_keeper, left_goal_line_x + keeper_line_offset, delta)
 	_update_goalkeeper(_red_defender, right_goal_line_x - keeper_line_offset, delta)
 	_apply_ball_body_rebounds()
+	_update_ai_anim_watchdog()
+
+
+## Watchdog simples: se um jogador ficou "preso" num clipe de ação que já terminou
+## (a lógica de movimento daquele frame não chegou a reativar a locomoção), volta
+## pra Idle. No frame seguinte, se ele estiver andando, _move_ai_player troca pra
+## Running normalmente. Evita o jogador congelar na pose de chute/passe.
+func _update_ai_anim_watchdog() -> void:
+	for player_node in _get_ai_players():
+		if player_node == null:
+			continue
+		var anim := _get_ai_animation_player(player_node)
+		if anim == null:
+			continue
+		var current := StringName(anim.current_animation)
+		if ACTION_ANIMS.has(current) and _action_anim_finished(anim):
+			anim.speed_scale = 1.0
+			_play_ai_anim(player_node, &"Idle", true)
 
 
 func _update_yellow_defense(delta: float) -> void:
@@ -708,7 +761,7 @@ func _update_yellow_defense(delta: float) -> void:
 	var red_has_ball := red_carrier != null
 	var brazil_carrier := _get_brazil_ball_carrier()
 	var player_controls := _player_controls_ball()
-	var closest_yellow := _get_closest_player_to_ball([_yellow_defender, _yellow_mid_left, _yellow_mid_right])
+	var closest_yellow := _elect_presser("yellow", [_yellow_defender, _yellow_mid_left, _yellow_mid_right], delta)
 
 	for index in _yellow_defense.size():
 		var slot := _yellow_defense[index]
@@ -764,7 +817,7 @@ func _update_red_team(delta: float) -> void:
 	var red_carrier := _get_red_ball_carrier()
 	var red_has_ball := red_carrier != null
 	var brazil_carrier := _get_brazil_ball_carrier()
-	var closest_red := _get_closest_player_to_ball([_red_mid_left, _red_mid_right, _red_attacker, _red_centerback])
+	var closest_red := _elect_presser("red", [_red_mid_left, _red_mid_right, _red_attacker, _red_centerback], delta)
 
 	_update_red_midfielder(_red_mid_left, Vector3(18.0, 0.0, -14.0), ball_pos, red_has_ball, red_carrier, brazil_carrier, closest_red, delta)
 	_update_red_midfielder(_red_mid_right, Vector3(18.0, 0.0, 14.0), ball_pos, red_has_ball, red_carrier, brazil_carrier, closest_red, delta)
@@ -878,7 +931,9 @@ func _update_goalkeeper(keeper: Node3D, line_x: float, delta: float) -> void:
 	var pos := keeper.global_position
 	var next_pos := pos.move_toward(target, keeper_speed * delta)
 	keeper.global_position = next_pos
-	var moved := _ground_distance(pos, next_pos) > 0.01
+	var keeper_movement := _ground_distance(pos, next_pos)
+	var moved := keeper_movement > 0.01
+	var keeper_ground_speed := keeper_movement / delta if delta > 0.0 else 0.0
 
 	var key := keeper.get_instance_id()
 	var cd := float(_keeper_action_cd.get(key, 0.0))
@@ -906,7 +961,7 @@ func _update_goalkeeper(keeper: Node3D, line_x: float, delta: float) -> void:
 			_play_ai_anim(keeper, clip, true)
 			_keeper_action_cd[key] = keeper_action_cooldown
 
-	_set_ai_motion_anim(keeper, moved)
+	_set_ai_motion_anim(keeper, moved, keeper_ground_speed)
 
 
 ## Defesa: o goleiro pega a bola. Ela é congelada e passa a ser segurada na mão;
@@ -1201,6 +1256,50 @@ func _get_closest_player_to_ball(players: Array) -> Node3D:
 	return best_player
 
 
+## Elege o pressionador da bola de um time COM HISTERESE (Fase 2).
+## Sem isto, "o mais perto" era recalculado todo frame e, com dois jogadores quase
+## equidistantes, o papel ficava alternando — causando perseguição dupla e os dois
+## convergindo um no outro. Aqui o papel "gruda" num jogador por ai_presser_min_hold
+## e só passa pra outro se ele estiver claramente mais perto (switch_margin), se o
+## atual abandonou a jogada (abandon_margin), ou se ficou inválido/atordoado.
+func _elect_presser(team_key: String, candidates: Array, delta: float) -> Node3D:
+	var ball_pos := _ball_ground_position()
+
+	var best: Node3D = null
+	var best_dist := INF
+	for c in candidates:
+		var node := c as Node3D
+		if node == null:
+			continue
+		var d := _ground_distance(node.global_position, ball_pos)
+		if d < best_dist:
+			best_dist = d
+			best = node
+
+	var claim: Dictionary = _presser_claims.get(team_key, {})
+	var current := claim.get("node", null) as Node3D
+	var timer := maxf(float(claim.get("timer", 0.0)) - delta, 0.0)
+
+	var current_valid := current != null and is_instance_valid(current) \
+		and candidates.has(current) and not _is_ai_stunned(current)
+
+	var should_switch := false
+	if not current_valid:
+		should_switch = true
+	elif best != null and best != current:
+		var current_dist := _ground_distance(current.global_position, ball_pos)
+		var hold_elapsed := timer <= 0.0 and best_dist < current_dist - ai_presser_switch_margin
+		var abandoned := current_dist > best_dist + ai_presser_abandon_margin
+		should_switch = hold_elapsed or abandoned
+
+	if should_switch and best != null:
+		current = best
+		timer = ai_presser_min_hold
+
+	_presser_claims[team_key] = {"node": current, "timer": timer}
+	return current
+
+
 func _player_controls_ball() -> bool:
 	if _player == null or _ball == null:
 		return false
@@ -1488,20 +1587,32 @@ func _control_ball_with_ai(player_node: Node3D, target: Vector3, delta: float, c
 		return
 	move_dir = move_dir.normalized()
 
-	var desired_ball_pos := player_pos + move_dir * red_control_distance
-	desired_ball_pos.y = _ball.global_position.y
-	var correction := desired_ball_pos - _ball.global_position
-	correction.y = 0.0
-	var desired_velocity := move_dir * (carry_speed * 0.72) + correction * ai_ball_carry_correction_speed
-	var speed_cap := carry_speed + ai_ball_carry_extra_speed
-	var horizontal_desired := Vector3(desired_velocity.x, 0.0, desired_velocity.z)
-	if horizontal_desired.length() > speed_cap:
-		horizontal_desired = horizontal_desired.normalized() * speed_cap
-		desired_velocity.x = horizontal_desired.x
-		desired_velocity.z = horizontal_desired.z
-	var velocity_error := desired_velocity - _ball.linear_velocity
-	velocity_error.y = 0.0
-	var force := velocity_error * _ball.mass * 18.0
+	# Velocidade real do condutor (base da Fase 3): a bola viaja JUNTO com ele.
+	# Sem casar o feed-forward com a velocidade real, a bola ficava pra trás —
+	# a mesma falha que o jogador humano tinha.
+	var carrier_vel := _ai_velocities.get(player_node.get_instance_id(), Vector3.ZERO) as Vector3
+	carrier_vel.y = 0.0
+	var carrier_speed := carrier_vel.length()
+
+	# Ponto à frente do pé, na direção em que ele REALMENTE anda (cai pro alvo se parado).
+	var carry_dir := move_dir
+	if carrier_speed > 0.5:
+		carry_dir = carrier_vel.normalized()
+	var desired_ball_pos := player_pos + carry_dir * red_control_distance
+
+	var flat_ball := Vector3(_ball.global_position.x, 0.0, _ball.global_position.z)
+	var correction := Vector3(desired_ball_pos.x, 0.0, desired_ball_pos.z) - flat_ball
+
+	# Feed-forward (velocidade do condutor) + correção que gruda a bola à frente.
+	var desired_velocity := carrier_vel + correction * ai_ball_carry_correction_speed
+
+	# Teto sobe junto com a velocidade do condutor pra a bola nunca ser deixada pra trás.
+	var speed_cap := maxf(carry_speed + ai_ball_carry_extra_speed, carrier_speed * 1.5)
+	if desired_velocity.length() > speed_cap:
+		desired_velocity = desired_velocity.normalized() * speed_cap
+
+	var ball_flat_vel := Vector3(_ball.linear_velocity.x, 0.0, _ball.linear_velocity.z)
+	var force := (desired_velocity - ball_flat_vel) * _ball.mass * 18.0
 	if force.length() > ai_ball_carry_max_force:
 		force = force.normalized() * ai_ball_carry_max_force
 	_ball.apply_central_force(force)
@@ -1543,7 +1654,13 @@ func _move_ai_player(player_node: Node3D, target: Vector3, speed: float, delta: 
 	if player_node == null:
 		return
 
+	var key := player_node.get_instance_id()
+	var vel := _ai_velocities.get(key, Vector3.ZERO) as Vector3
+
+	# Atordoado: freia até parar (não teleporta a 0) e fica encarando a jogada.
 	if _is_ai_stunned(player_node):
+		vel = vel.move_toward(Vector3.ZERO, ai_decel * delta)
+		_ai_velocities[key] = vel
 		_set_ai_motion_anim(player_node, false)
 		_face_ai_player_focus(player_node, target, delta)
 		return
@@ -1555,12 +1672,25 @@ func _move_ai_player(player_node: Node3D, target: Vector3, speed: float, delta: 
 	var pos := player_node.global_position
 	pos.y = 0.0
 	var distance_to_target := _ground_distance(pos, target)
-	if distance_to_target < 0.08:
-		_set_ai_motion_anim(player_node, false)
-		_face_ai_player_focus(player_node, target, delta)
-		return
 
-	var next_pos := pos.move_toward(target, speed * delta)
+	# Velocidade desejada: aponta pro alvo na velocidade pedida, mas com "arrive" —
+	# reduz ao chegar perto pra não passar do ponto nem ficar oscilando em cima dele.
+	var desired := Vector3.ZERO
+	if distance_to_target > 0.08:
+		var dir := target - pos
+		dir.y = 0.0
+		dir = dir.normalized()
+		var arrive_speed := speed
+		if distance_to_target < ai_arrive_radius:
+			arrive_speed = speed * (distance_to_target / ai_arrive_radius)
+		desired = dir * arrive_speed
+
+	# Acelera/desacelera a velocidade atual rumo à desejada -> inércia, sem virar
+	# de 180° num frame. Desacelera mais rápido do que acelera (mais responsivo).
+	var rate := ai_accel if desired.length() >= vel.length() else ai_decel
+	vel = vel.move_toward(desired, rate * delta)
+
+	var next_pos := pos + vel * delta
 	next_pos = _separate_ai_position(player_node, next_pos)
 
 	# Move o AnimatableBody diretamente para a colisão seguir sem delay
@@ -1570,10 +1700,23 @@ func _move_ai_player(player_node: Node3D, target: Vector3, speed: float, delta: 
 
 	player_node.global_position = next_pos
 
+	# Reconcilia a velocidade com o que REALMENTE andou (separação/clamp podem ter
+	# barrado o passo) pra não acumular empurrão contra colega ou parede.
+	if delta > 0.0:
+		vel = (next_pos - pos) / delta
+	_ai_velocities[key] = vel
+
 	var actual_movement := _ground_distance(pos, next_pos)
 	var moved := actual_movement > ai_run_anim_min_movement and distance_to_target > ai_run_anim_min_target_distance
-	_set_ai_motion_anim(player_node, moved)
-	_face_ai_player_focus(player_node, target, delta)
+	var ground_speed := actual_movement / delta if delta > 0.0 else 0.0
+	_set_ai_motion_anim(player_node, moved, ground_speed)
+
+	# Rumo segue a direção REAL do movimento quando há velocidade relevante; parado
+	# ou bem devagar, mantém o foco no alvo/bola (comportamento anterior).
+	var face_target := target
+	if vel.length() > ai_face_min_speed:
+		face_target = pos + vel.normalized() * 2.0
+	_face_ai_player_focus(player_node, face_target, delta)
 
 
 func _separate_ai_position(player_node: Node3D, desired_pos: Vector3) -> Vector3:
@@ -1677,9 +1820,15 @@ func _face_ai_player_focus(player_node: Node3D, move_target: Vector3, delta: flo
 		var player_pos := player_node.global_position
 		player_pos.y = 0.0
 		var distance_to_ball := _ground_distance(player_pos, ball_pos)
+		# Parte C: rampa suave em vez do salto seco em 1.8m (que causava os giros).
+		# Perto (<= near) encara a bola; longe (>= far) usa o peso base; entre os
+		# dois interpola com smoothstep pra direção de olhar não pular.
 		var weight := ai_face_ball_weight
-		if distance_to_ball < 1.8:
+		if distance_to_ball <= ai_face_ball_near:
 			weight = 1.0
+		elif distance_to_ball < ai_face_ball_far:
+			var t := smoothstep(ai_face_ball_far, ai_face_ball_near, distance_to_ball)
+			weight = lerpf(ai_face_ball_weight, 1.0, t)
 		focus = move_target.lerp(ball_pos, weight)
 
 	_face_ai_player(player_node, focus, delta)
@@ -1712,16 +1861,37 @@ func _is_ai_stunned(player_node: Node3D) -> bool:
 	return float(_stun_timers.get(player_node.get_instance_id(), 0.0)) > 0.0
 
 
-func _set_ai_motion_anim(player_node: Node3D, moving: bool) -> void:
+func _set_ai_motion_anim(player_node: Node3D, moving: bool, ground_speed: float = -1.0) -> void:
 	var anim := _get_ai_animation_player(player_node)
 	if anim == null:
 		return
 
+	# Não interrompe um clipe de ação que ainda está genuinamente tocando.
 	var current := StringName(anim.current_animation)
-	if anim.is_playing() and (current == &"Kick" or current == &"Pass" or current == &"Header" or current == &"PenaltyKick" or current == &"ScissorKick" or current == &"DiveA" or current == &"DiveB" or current == &"Throw"):
+	if anim.is_playing() and ACTION_ANIMS.has(current) and not _action_anim_finished(anim):
 		return
 
-	_play_ai_anim(player_node, &"Running" if moving else &"Idle")
+	if moving:
+		_play_ai_anim(player_node, &"Running")
+		# Parte A: passada acompanha a velocidade de chão -> sem patinar.
+		# ground_speed < 0 = chamador não informou (ex.: posicionamento) -> mantém 1.0x.
+		if ground_speed >= 0.0:
+			var ref := maxf(ai_run_anim_reference_speed, 0.01)
+			anim.speed_scale = clampf(ground_speed / ref, ai_run_anim_min_speed_scale, ai_run_anim_max_speed_scale)
+		else:
+			anim.speed_scale = 1.0
+	else:
+		anim.speed_scale = 1.0
+		_play_ai_anim(player_node, &"Idle")
+
+
+## Um clipe de ação (não-looping) chegou ao fim? Serve de base pro watchdog e pra
+## liberar a volta à locomoção mesmo que o AnimationPlayer não tenha parado sozinho.
+func _action_anim_finished(anim: AnimationPlayer) -> bool:
+	if not anim.is_playing():
+		return true
+	var length := anim.current_animation_length
+	return length > 0.0 and anim.current_animation_position >= length - 0.02
 
 
 func _play_ai_anim(player_node: Node3D, anim_name: StringName, force: bool = false) -> bool:
@@ -1754,6 +1924,8 @@ func _reset_ai_for_restart() -> void:
 	_stun_timers.clear()
 	_ai_kick_plans.clear()
 	_ai_think_cooldowns.clear()
+	_presser_claims.clear()
+	_ai_velocities.clear()
 	_keeper_action_cd.clear()
 	_ball_holder = null
 	_hold_target = null
