@@ -6,7 +6,7 @@ extends Node3D
 @export var bounds_offset: Vector3 = Vector3(0.0, 0.0, 0.0)
 
 @export_group("Formato do estádio")
-@export var create_play_bounds: bool = true
+@export var create_play_bounds: bool = false
 @export var straight_half_length: float = 52.0
 ## Largura do arco — deve coincidir com a metade da largura das laterais
 @export var arc_radius_x: float = 5.0
@@ -46,9 +46,16 @@ func _make_solid(branch: Node) -> void:
 		var n: Node = stack.pop_back()
 		if n is MeshInstance3D and n.mesh != null:
 			n.create_trimesh_collision()
+			_hide_collision_shapes(n)
 			_colliders_created += 1
 		for child in n.get_children():
 			stack.append(child)
+
+func _hide_collision_shapes(root: Node) -> void:
+	for node in root.find_children("*", "CollisionShape3D", true, false):
+		var shape_node := node as CollisionShape3D
+		if shape_node != null:
+			shape_node.visible = false
 
 func _create_play_bounds() -> void:
 	var root := StaticBody3D.new()
@@ -100,6 +107,7 @@ func _add_arc(parent: Node, arc_name: String, center: Vector3,
 		col.position = seg_pos
 		col.rotation = Vector3(0.0, -tangent_y, 0.0)
 		col.shape    = shape
+		col.visible  = false
 		parent.add_child(col)
 		_colliders_created += 1
 
@@ -110,5 +118,6 @@ func _add_wall(parent: Node, wall_name: String, pos: Vector3, size: Vector3) -> 
 	col.name     = wall_name
 	col.position = pos
 	col.shape    = shape
+	col.visible  = false
 	parent.add_child(col)
 	_colliders_created += 1
