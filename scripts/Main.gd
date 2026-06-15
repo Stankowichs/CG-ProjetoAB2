@@ -163,13 +163,6 @@ func _check_ball_rules() -> void:
 			_register_goal(true)
 			return
 
-	if pos.x <= left_goal_line_x or pos.x >= right_goal_line_x:
-		_register_corner(pos)
-		return
-
-	if absf(pos.z) >= touchline_z:
-		_register_throw_in(pos)
-
 
 func _register_goal(bra_scored: bool) -> void:
 	_rules_locked = true
@@ -184,43 +177,6 @@ func _register_goal(bra_scored: bool) -> void:
 	_reset_player_for_restart()
 	_reset_ai_for_restart()
 	await get_tree().create_timer(0.55).timeout
-	_rules_locked = false
-
-
-func _register_throw_in(ball_pos: Vector3) -> void:
-	_rules_locked = true
-	var side_z := signf(ball_pos.z)
-	if side_z == 0.0:
-		side_z = 1.0
-	var throw_x := clampf(ball_pos.x, left_goal_line_x + 6.0, right_goal_line_x - 6.0)
-	var throw_pos := Vector3(throw_x, kickoff_ball_position.y, side_z * (touchline_z - throw_in_inset))
-	_show_status("LATERAL")
-	await get_tree().create_timer(0.55).timeout
-	_reset_ball(throw_pos)
-	await get_tree().create_timer(0.45).timeout
-	_show_status("")
-	_rules_locked = false
-
-
-func _register_corner(ball_pos: Vector3) -> void:
-	_rules_locked = true
-	var side_x := signf(ball_pos.x)
-	if side_x == 0.0:
-		side_x = 1.0
-	var side_z := signf(ball_pos.z)
-	if side_z == 0.0:
-		side_z = 1.0
-
-	var corner_x := left_goal_line_x + corner_inset
-	if side_x > 0.0:
-		corner_x = right_goal_line_x - corner_inset
-	var corner_pos := Vector3(corner_x, kickoff_ball_position.y, side_z * (touchline_z - corner_inset))
-
-	_show_status("ESCANTEIO")
-	await get_tree().create_timer(0.55).timeout
-	_reset_ball(corner_pos)
-	await get_tree().create_timer(0.45).timeout
-	_show_status("")
 	_rules_locked = false
 
 
@@ -1466,8 +1422,8 @@ func _update_score_pulse(delta: float) -> void:
 func _create_field_walls() -> void:
 	var body := StaticBody3D.new()
 	body.name = "FieldWalls"
-	body.collision_layer = 1
-	body.collision_mask = 68
+	body.collision_layer = 32
+	body.collision_mask = 4
 
 	var seg_length := touchline_z - goal_half_width
 	var seg_center_z := goal_half_width + seg_length * 0.5
@@ -1475,10 +1431,10 @@ func _create_field_walls() -> void:
 
 	# Laterais
 	_add_field_wall(body, "SideNorth",
-		Vector3(left_goal_line_x + field_len * 0.5, 0.5, -(touchline_z + 0.5)),
+		Vector3(left_goal_line_x + field_len * 0.5, 0.5, -30.0),
 		Vector3(field_len, 2.0, 1.0))
 	_add_field_wall(body, "SideSouth",
-		Vector3(left_goal_line_x + field_len * 0.5, 0.5, touchline_z + 0.5),
+		Vector3(left_goal_line_x + field_len * 0.5, 0.5, 30 + 0.5),
 		Vector3(field_len, 2.0, 1.0))
 
 	# Linhas de fundo com abertura do gol
@@ -1496,7 +1452,6 @@ func _create_field_walls() -> void:
 		Vector3(1.0, 2.0, seg_length))
 
 	add_child(body)
-	print("FieldWalls criado: ", body.get_child_count(), " paredes")
 
 func _add_field_wall(parent: Node, wall_name: String, pos: Vector3, size: Vector3) -> void:
 	var shape := BoxShape3D.new()
