@@ -49,8 +49,9 @@ const ACTION_ANIMS := {
 @export var yellow_contain_back: float = 3.4
 @export var yellow_contain_width: float = 6.0
 @export var ai_body_radius: float = 0.62
-@export var ai_separation_distance: float = 1.55
-@export var ai_separation_push: float = 0.22
+@export var ai_separation_push: float = 0.3        # empurrão suave na zona de "espaço pessoal"
+@export var ai_separation_buffer: float = 0.25     # folga além do encostar (zona pessoal)
+@export var ai_separation_hardness: float = 0.5    # fração da sobreposição real resolvida por frame
 @export var yellow_recovery_pass_power: float = 7.0
 @export var red_counter_tackle_distance: float = 1.75
 @export var red_counter_tackle_power: float = 8.0
@@ -1720,7 +1721,9 @@ func _move_ai_player(player_node: Node3D, target: Vector3, speed: float, delta: 
 
 
 func _separate_ai_position(player_node: Node3D, desired_pos: Vector3) -> Vector3:
-	var separation := Vector3.ZERO
+	var my_radius := _get_player_collision_radius(player_node)
+	var push := Vector3.ZERO
+
 	for other in _get_player_bodies_for_separation():
 		if other == null or other == player_node:
 			continue
@@ -1730,18 +1733,39 @@ func _separate_ai_position(player_node: Node3D, desired_pos: Vector3) -> Vector3
 		var away := desired_pos - other_pos
 		away.y = 0.0
 		var distance := away.length()
-		if distance < 0.01 or distance >= ai_separation_distance:
+
+		# Distâncias por par usando os raios REAIS (goleiros são maiores). "core" é o
+		# encostar de fato; "personal" inclui uma folga de espaço pessoal.
+		var core := my_radius + _get_player_collision_radius(other)
+		var personal := core + ai_separation_buffer
+		if distance >= personal:
 			continue
 
-		separation += away.normalized() * ((ai_separation_distance - distance) / ai_separation_distance)
+		# Direção pra longe do outro; se estiverem praticamente em cima um do outro,
+		# usa uma direção determinística pra não ficar indefinido (nem aleatório).
+		var dir := away / distance if distance > 0.001 else _fallback_separation_dir(player_node, other)
 
-	if separation.length() > 0.01:
-		desired_pos += separation.normalized() * minf(separation.length(), ai_separation_push)
+		if distance < core:
+			# Sobreposição real: empurra forte (núcleo duro). Como o outro também se
+			# afasta no frame dele, resolver uma fração por frame converge sem tranco.
+			push += dir * (core - distance) * ai_separation_hardness
+		else:
+			# Zona pessoal: empurrãozinho suave proporcional pra manterem distância.
+			push += dir * ((personal - distance) / personal) * ai_separation_push
 
+	desired_pos += push
 	desired_pos.x = clampf(desired_pos.x, left_goal_line_x + 5.0, right_goal_line_x - 5.0)
 	desired_pos.y = 0.0
 	desired_pos.z = clampf(desired_pos.z, -touchline_z + 4.0, touchline_z - 4.0)
 	return desired_pos
+
+
+## Direção de separação estável pra quando dois jogadores estão exatamente na mesma
+## posição (away ~ 0). Deriva do id pra ser determinística e oposta entre o par.
+func _fallback_separation_dir(player_node: Node3D, other: Node3D) -> Vector3:
+	var dir_sign := 1.0 if player_node.get_instance_id() > other.get_instance_id() else -1.0
+	var angle := float(player_node.get_instance_id() % 628) * 0.01
+	return Vector3(cos(angle), 0.0, sin(angle)) * dir_sign
 
 
 func _apply_ball_body_rebounds() -> void:

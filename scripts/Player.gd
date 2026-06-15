@@ -39,12 +39,16 @@ const ANIM_LIB_PATH := "res://anims/ronaldo_anims.res"
 @export var tackle_reach: float = 0.75
 @export var tackle_power: float = 8.5
 @export var tackle_cooldown: float = 0.65
+## Após chutar/dar carrinho, a condução para de "agarrar" a bola por este tempo,
+## pra ela conseguir sair mesmo com L ainda pressionado.
+@export var control_kick_release_time: float = 0.35
 
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _kick_charge: float = 0.0
 var _anim: AnimationPlayer = null
 var _kicking: bool = false
 var _tackle_timer: float = 0.0
+var _control_suspend_timer: float = 0.0
 
 @onready var _kick_area: Area3D = $KickArea
 @onready var _model: Node3D = $Model
@@ -77,6 +81,7 @@ func _install_animation_library() -> void:
 
 func _physics_process(delta: float) -> void:
 	_tackle_timer = maxf(_tackle_timer - delta, 0.0)
+	_control_suspend_timer = maxf(_control_suspend_timer - delta, 0.0)
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
 
@@ -125,6 +130,7 @@ func _physics_process(delta: float) -> void:
 			_kicking = true
 		_kick_balls(_kick_charge_ratio())
 		_kick_charge = 0.0
+		_control_suspend_timer = control_kick_release_time
 		kicked_this_frame = true
 
 	if Input.is_action_just_pressed("tackle") and _tackle_timer <= 0.0:
@@ -132,12 +138,17 @@ func _physics_process(delta: float) -> void:
 			_kicking = true
 		_tackle_balls()
 		_tackle_timer = tackle_cooldown
+		_control_suspend_timer = control_kick_release_time
 		kicked_this_frame = true
 
 	if kicked_this_frame:
 		return
 
-	if Input.is_action_pressed("control_ball"):
+	# Logo após um chute, a condução não recaptura a bola por um instante (mesmo com
+	# L segurado), senão o controle sobrescreveria a velocidade e mataria o chute.
+	if _control_suspend_timer > 0.0:
+		pass
+	elif Input.is_action_pressed("control_ball"):
 		_control_balls(delta)
 	else:
 		_dribble_balls()
