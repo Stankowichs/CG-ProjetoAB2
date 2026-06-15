@@ -1413,7 +1413,7 @@ func _try_red_tackle(player_node: Node3D, brazil_carrier: Node3D, delta: float) 
 	_finish_red_tackle(player_node, target)
 	_red_tackle_cooldowns[key] = 1.05
 
-
+ 
 func _pass_ball_to_player(from_player: Node3D) -> void:
 	if _player == null or _ball == null:
 		return

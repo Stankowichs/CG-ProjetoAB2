@@ -14,6 +14,8 @@
 [ext_resource type="Script" uid="uid://cyv0konvdhwdg" path="res://scripts/StadiumColliders.gd" id="10_stadium_col"]
 [ext_resource type="PackedScene" uid="uid://dycrafsv0rxyg" path="res://models/ball.glb" id="11_ball"]
 [ext_resource type="Script" uid="uid://dlf434bbx1vqh" path="res://scripts/Main.gd" id="12_main"]
+[ext_resource type="PackedScene" path="res://models/crowd.glb" id="16_crowd"]
+[ext_resource type="Script" path="res://scripts/CrowdColors.gd" id="17_crowdcol"]
 
 [sub_resource type="PhysicalSkyMaterial" id="SkyMat_phys"]
 rayleigh_color = Color(0.32, 0.55, 0.95, 1)
@@ -94,6 +96,9 @@ script = ExtResource("7_lights")
 script = ExtResource("10_stadium_col")
 solid_node_keywords = PackedStringArray("khungthanh", "cabin")
 bounds_offset = Vector3(-2, 0, 0)
+
+[node name="Crowd" parent="." instance=ExtResource("16_crowd")]
+script = ExtResource("17_crowdcol")
 
 [node name="GroundCollider" type="StaticBody3D" parent="." unique_id=2084328724]
 
