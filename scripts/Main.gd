@@ -141,6 +141,12 @@ const ACTION_ANIMS := {
 @export var keeper_area_clear_margin: float = 1.5
 @export var keeper_clear_area_speed: float = 7.0
 
+var _snd_kick: AudioStreamPlayer = null
+var _snd_goal: AudioStreamPlayer = null
+var _snd_whistle: AudioStreamPlayer = null
+var _snd_crowd: AudioStreamPlayer = null
+var _snd_throw: AudioStreamPlayer = null
+
 var _bra_score: int = 0
 var _mar_score: int = 0
 var _rules_locked: bool = false
@@ -187,6 +193,7 @@ var _hold_throw_started: bool = false
 
 
 func _ready() -> void:
+	_setup_audio()
 	_setup_match_ai()
 	if disable_ai_players_for_dribble_test:
 		_disable_ai_players_for_dribble_test()
@@ -194,6 +201,33 @@ func _ready() -> void:
 	_update_scoreboard()
 	_create_field_walls()
 	call_deferred("_hide_collision_debug_shapes")
+
+
+func _setup_audio() -> void:
+	_snd_kick    = _create_audio_player("res://audio/mixkit-soccer-ball-kick-2099.ogg")
+	_snd_goal    = _create_audio_player("res://audio/gol1.ogg")
+	_snd_whistle = _create_audio_player("res://audio/apito.ogg")
+	_snd_throw   = _create_audio_player("res://audio/throw-ball.ogg")
+
+	var crowd_stream := load("res://audio/mixkit-stadium-joy-shouting-crowd-3022.ogg") as AudioStreamOggVorbis
+	if crowd_stream:
+		crowd_stream.loop = true
+	_snd_crowd = AudioStreamPlayer.new()
+	_snd_crowd.stream = crowd_stream
+	_snd_crowd.volume_db = -18.0
+	add_child(_snd_crowd)
+	_snd_crowd.play()
+
+
+func _create_audio_player(path: String) -> AudioStreamPlayer:
+	var player := AudioStreamPlayer.new()
+	var stream = load(path)
+	if stream:
+		player.stream = stream
+	else:
+		push_warning("Audio: arquivo não encontrado: %s" % path)
+	add_child(player)
+	return player
 
 func _process(delta: float) -> void:
 	_update_score_pulse(delta)
@@ -252,6 +286,10 @@ func _register_goal(bra_scored: bool) -> void:
 		_mar_score += 1
 	_update_scoreboard()
 	_score_pulse_timer = 1.6
+	if _snd_goal:
+		_snd_goal.play()
+	if _snd_crowd:
+		_snd_crowd.play()
 	await get_tree().create_timer(restart_delay).timeout
 	_reset_ball(kickoff_ball_position)
 	_reset_player_for_restart()
@@ -264,6 +302,8 @@ func _register_yellow_restart(ball_pos: Vector3, status_text: String) -> void:
 	_rules_locked = true
 	_show_status(status_text)
 	_stop_ball_motion(true)
+	if _snd_whistle:
+		_snd_whistle.play()
 
 	await _fade_match(true)
 
@@ -293,6 +333,8 @@ func _register_keeper_restart(ball_pos: Vector3) -> void:
 	var line_x := left_goal_line_x + keeper_line_offset if left_side else right_goal_line_x - keeper_line_offset
 	_show_status("TIRO DE META YELLOW" if left_side else "TIRO DE META RED")
 	_stop_ball_motion(true)
+	if _snd_whistle:
+		_snd_whistle.play()
 
 	await _fade_match(true)
 
@@ -1036,6 +1078,8 @@ func _keeper_release(keeper: Node3D) -> void:
 	_ball.linear_velocity = Vector3.ZERO
 	_ball.angular_velocity = Vector3.ZERO
 	_ball.apply_central_impulse(aim * power + Vector3.UP * power * 0.35)
+	if _snd_throw:
+		_snd_throw.play()
 
 	_ball_holder = null
 	_hold_target = null
@@ -1540,6 +1584,8 @@ func _update_ai_think_kick(player_node: Node3D, delta: float, speed: float) -> b
 		if float(plan["timer"]) <= 0.0:
 			_play_ai_anim(player_node, &"Kick", true)
 			_soft_touch_ball_toward(target, float(plan.get("power", red_think_kick_power)), 0.08)
+			if _snd_kick:
+				_snd_kick.play()
 			if team == "red" and target_node == null:
 				_red_shot_cooldown = 1.6
 			_ai_kick_plans.erase(key)

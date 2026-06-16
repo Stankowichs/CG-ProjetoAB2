@@ -49,6 +49,7 @@ var _anim: AnimationPlayer = null
 var _kicking: bool = false
 var _tackle_timer: float = 0.0
 var _control_suspend_timer: float = 0.0
+var _snd_kick: AudioStreamPlayer = null
 
 @onready var _kick_area: Area3D = $KickArea
 @onready var _model: Node3D = $Model
@@ -65,6 +66,11 @@ func _ready() -> void:
 		_play_anim(&"Idle")
 	else:
 		push_warning("Player: AnimationPlayer não encontrado dentro de Model.")
+	_snd_kick = AudioStreamPlayer.new()
+	var stream = load("res://audio/mixkit-soccer-ball-kick-2099.ogg")
+	if stream:
+		_snd_kick.stream = stream
+	add_child(_snd_kick)
 
 
 ## Troca a biblioteca de animações padrão do modelo pela versão baked dos FBX.
@@ -227,6 +233,8 @@ func _kick_balls(charge_ratio: float) -> void:
 			var ball := body as RigidBody3D
 			var impulse := _facing_dir() * power + Vector3.UP * (power * kick_lift)
 			ball.apply_central_impulse(impulse)
+			if _snd_kick:
+				_snd_kick.play()
 
 
 ## Mantém a bola perto do pé enquanto L estiver pressionado.
