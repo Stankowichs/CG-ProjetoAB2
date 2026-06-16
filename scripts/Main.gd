@@ -20,11 +20,13 @@ const POWER_PENALTY := "penalty"
 const POWER_SUPER_CONTROL := "super_control"
 const POWER_SUPER_SPEED := "super_speed"
 const POWER_SUPER_KICK := "super_kick"
+const POWER_SURE_GOAL := "sure_goal"
 const POWER_OPTIONS := [
-	{"key": POWER_PENALTY, "name": "PENALTI"},
-	{"key": POWER_SUPER_CONTROL, "name": "SUPER CONDUCAO"},
-	{"key": POWER_SUPER_SPEED, "name": "SUPER VELOCIDADE"},
-	{"key": POWER_SUPER_KICK, "name": "SUPER CHUTE"},
+	{"key": POWER_PENALTY, "name": "PENALTI", "weight": 1.35},
+	{"key": POWER_SURE_GOAL, "name": "GOL CERTEIRO", "weight": 1.35},
+	{"key": POWER_SUPER_CONTROL, "name": "SUPER CONDUCAO", "weight": 1.0},
+	{"key": POWER_SUPER_SPEED, "name": "SUPER VELOCIDADE", "weight": 1.0},
+	{"key": POWER_SUPER_KICK, "name": "SUPER CHUTE", "weight": 1.0},
 ]
 
 @export_group("Regras do campo")
@@ -179,11 +181,22 @@ const POWER_OPTIONS := [
 @export var power_duration: float = 8.0
 @export var super_speed_walk_mult: float = 1.45
 @export var super_speed_sprint_mult: float = 1.25
-@export var super_control_distance_bonus: float = 0.55
-@export var super_control_force_mult: float = 1.8
-@export var super_control_dribble_mult: float = 2.2
-@export var super_kick_power_mult: float = 1.55
-@export var super_kick_lift_mult: float = 1.25
+@export var super_control_distance: float = 0.58
+@export var super_control_pull_mult: float = 4.2
+@export var super_control_force_mult: float = 5.0
+@export var super_control_correction_mult: float = 3.4
+@export var super_control_velocity_match_mult: float = 3.0
+@export var super_control_lateral_snap_mult: float = 3.5
+@export var super_control_extra_speed_bonus: float = 7.5
+@export var super_control_min_front_distance: float = 0.32
+@export var super_control_dribble_mult: float = 3.2
+@export var super_kick_power_mult: float = 2.8
+@export var super_kick_lift_mult: float = 1.7
+@export var sure_goal_trigger_distance: float = 4.0
+@export var sure_goal_duration: float = 2.15
+@export var sure_goal_curve_width: float = 18.0
+@export var sure_goal_arc_height: float = 7.0
+@export var sure_goal_weaves: float = 3.5
 
 var _snd_kick: AudioStreamPlayer = null
 var _snd_goal: AudioStreamPlayer = null
@@ -241,9 +254,11 @@ var _active_power_timer: float = 0.0
 var _player_power_base: Dictionary = {}
 var _penalty_waiting_for_kick: bool = false
 var _penalty_ball_released: bool = false
+var _sure_goal_running: bool = false
 
 @onready var _ball: RigidBody3D = $Ball
 @onready var _player: Node3D = $Player
+@onready var _broadcast_camera: Camera3D = get_node_or_null("BroadcastCamera") as Camera3D
 @onready var _star: Node3D = get_node_or_null("Star") as Node3D
 @onready var _yellow_defender: Node3D = get_node_or_null("TeamYellow_02") as Node3D
 @onready var _yellow_mid_left: Node3D = get_node_or_null("TeamYellow_03") as Node3D
@@ -302,6 +317,7 @@ func _process(delta: float) -> void:
 	_update_power_state(delta)
 	_update_star_pickup(delta)
 	_update_penalty_wait_for_kick()
+	_update_sure_goal_kick()
 	_check_ball_rules()
 
 
@@ -386,7 +402,8 @@ func _capture_player_power_base() -> void:
 		"walk_speed", "sprint_mult", "accel",
 		"kick_min_power", "kick_max_power", "kick_lift",
 		"dribble_push", "control_distance", "control_pull_strength",
-		"control_max_force", "control_max_extra_speed",
+		"control_velocity_match", "control_max_force", "control_correction_speed",
+		"control_max_extra_speed", "control_min_front_distance", "control_lateral_snap",
 	]:
 		_player_power_base[property_name] = _player.get(property_name)
 
@@ -440,12 +457,28 @@ func _start_power_roulette() -> void:
 		await get_tree().create_timer(roulette_tick_time).timeout
 		elapsed += roulette_tick_time
 
-	var result := POWER_OPTIONS[_rng.randi_range(0, POWER_OPTIONS.size() - 1)] as Dictionary
+	var result := _pick_weighted_power_option()
 	_show_roulette(true, String(result["name"]))
 	await get_tree().create_timer(0.55).timeout
 	_show_roulette(false)
 	await _apply_power_result(result)
 	_roulette_running = false
+
+
+func _pick_weighted_power_option() -> Dictionary:
+	var total_weight := 0.0
+	for option in POWER_OPTIONS:
+		total_weight += maxf(float(option.get("weight", 1.0)), 0.0)
+
+	if total_weight <= 0.0:
+		return POWER_OPTIONS[_rng.randi_range(0, POWER_OPTIONS.size() - 1)] as Dictionary
+
+	var roll := _rng.randf_range(0.0, total_weight)
+	for option in POWER_OPTIONS:
+		roll -= maxf(float(option.get("weight", 1.0)), 0.0)
+		if roll <= 0.0:
+			return option as Dictionary
+	return POWER_OPTIONS.back() as Dictionary
 
 
 func _apply_power_result(power: Dictionary) -> void:
@@ -464,10 +497,14 @@ func _apply_power_result(power: Dictionary) -> void:
 	_active_power_timer = power_duration
 	match key:
 		POWER_SUPER_CONTROL:
-			_set_player_power_value("control_distance", _player_power_float("control_distance") + super_control_distance_bonus)
-			_set_player_power_value("control_pull_strength", _player_power_float("control_pull_strength") * super_control_force_mult)
+			_set_player_power_value("control_distance", super_control_distance)
+			_set_player_power_value("control_pull_strength", _player_power_float("control_pull_strength") * super_control_pull_mult)
 			_set_player_power_value("control_max_force", _player_power_float("control_max_force") * super_control_force_mult)
-			_set_player_power_value("control_max_extra_speed", _player_power_float("control_max_extra_speed") + 1.6)
+			_set_player_power_value("control_correction_speed", _player_power_float("control_correction_speed") * super_control_correction_mult)
+			_set_player_power_value("control_velocity_match", _player_power_float("control_velocity_match") * super_control_velocity_match_mult)
+			_set_player_power_value("control_lateral_snap", _player_power_float("control_lateral_snap") * super_control_lateral_snap_mult)
+			_set_player_power_value("control_min_front_distance", super_control_min_front_distance)
+			_set_player_power_value("control_max_extra_speed", _player_power_float("control_max_extra_speed") + super_control_extra_speed_bonus)
 			_set_player_power_value("dribble_push", _player_power_float("dribble_push") * super_control_dribble_mult)
 		POWER_SUPER_SPEED:
 			_set_player_power_value("walk_speed", _player_power_float("walk_speed") * super_speed_walk_mult)
@@ -477,8 +514,13 @@ func _apply_power_result(power: Dictionary) -> void:
 			_set_player_power_value("kick_min_power", _player_power_float("kick_min_power") * super_kick_power_mult)
 			_set_player_power_value("kick_max_power", _player_power_float("kick_max_power") * super_kick_power_mult)
 			_set_player_power_value("kick_lift", _player_power_float("kick_lift") * super_kick_lift_mult)
+		POWER_SURE_GOAL:
+			pass
 
-	_show_status(display_name)
+	if key == POWER_SURE_GOAL:
+		_show_status("GOL CERTEIRO - CHUTE PARA ATIVAR")
+	else:
+		_show_status(display_name)
 	_update_power_hud()
 
 
@@ -528,6 +570,91 @@ func _update_penalty_wait_for_kick() -> void:
 	_active_power_timer = 0.0
 	_show_status("")
 	_update_power_hud()
+
+
+func _update_sure_goal_kick() -> void:
+	if _active_power_key != POWER_SURE_GOAL or _sure_goal_running or _rules_locked:
+		return
+	if _player == null or _ball == null or _ball_holder != null:
+		return
+	if not Input.is_action_just_released("kick"):
+		return
+	if _ground_distance(_player.global_position, _ball_ground_position()) > sure_goal_trigger_distance:
+		return
+	_run_sure_goal_shot()
+
+
+func _run_sure_goal_shot() -> void:
+	_sure_goal_running = true
+	_rules_locked = true
+	_active_power_timer = 0.0
+	_active_power_key = ""
+	_active_power_name = ""
+	_update_power_hud()
+	_show_status("GOL CERTEIRO!")
+	_focus_camera_on_ball(true)
+
+	# Deixa o chute normal do Player.gd acontecer primeiro; depois o poder assume a bola.
+	await get_tree().physics_frame
+	if _ball == null:
+		_focus_camera_on_ball(false)
+		_sure_goal_running = false
+		_rules_locked = false
+		return
+
+	var start := _ball.global_position
+	start.y = maxf(start.y, kickoff_ball_position.y)
+	var target := Vector3(right_goal_line_x + 1.6, kickoff_ball_position.y + 0.25, 0.0)
+	var duration := maxf(sure_goal_duration, 0.25)
+	var elapsed := 0.0
+	_ball.freeze = true
+	_ball.sleeping = false
+	_ball.linear_velocity = Vector3.ZERO
+	_ball.angular_velocity = Vector3.ZERO
+
+	while elapsed < duration and _ball != null:
+		await get_tree().physics_frame
+		var delta := get_physics_process_delta_time()
+		elapsed += delta
+		var t := clampf(elapsed / duration, 0.0, 1.0)
+		var eased := smoothstep(0.0, 1.0, t)
+		var base := start.lerp(target, eased)
+		var crazy_fade := 1.0 - t
+		var side_wave := sin(t * TAU * sure_goal_weaves) * sure_goal_curve_width * crazy_fade
+		var snap_wave := sin(t * TAU * (sure_goal_weaves * 1.7)) * sure_goal_curve_width * 0.28 * crazy_fade
+		var height_wave := sin(t * PI) * sure_goal_arc_height
+		height_wave += absf(sin(t * TAU * (sure_goal_weaves + 0.5))) * 1.15 * crazy_fade
+		_ball.global_position = Vector3(
+			base.x,
+			maxf(kickoff_ball_position.y, base.y + height_wave),
+			clampf(base.z + side_wave + snap_wave, -touchline_z + 2.0, touchline_z - 2.0)
+		)
+		_ball.global_rotation += Vector3(delta * 11.0, delta * 18.0, delta * 7.0)
+
+	if _ball != null:
+		_ball.freeze = false
+		_ball.sleeping = false
+		_ball.global_position = target
+		_ball.linear_velocity = Vector3(5.0, 0.0, 0.0)
+		_ball.angular_velocity = Vector3(0.0, 8.0, 0.0)
+
+	_sure_goal_running = false
+	_rules_locked = false
+	_focus_camera_on_ball(false)
+	_show_status("")
+	await _register_goal(true)
+
+
+func _focus_camera_on_ball(enable: bool) -> void:
+	if _broadcast_camera == null:
+		return
+	if not _broadcast_camera.has_method("set_target"):
+		return
+
+	if enable:
+		_broadcast_camera.call("set_target", _ball, Vector3(0.0, 0.4, 0.0), 6.0)
+	else:
+		_broadcast_camera.call("set_target", _player, Vector3(0.0, 1.5, 0.0), 3.5)
 
 
 func _position_players_for_penalty(ball_pos: Vector3) -> void:

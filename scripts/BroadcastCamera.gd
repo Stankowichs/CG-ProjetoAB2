@@ -27,6 +27,13 @@ func _ready() -> void:
 	current = true
 
 
+func set_target(node: Node3D, offset: Vector3 = Vector3(0, 1.0, 0), smooth_speed: float = -1.0) -> void:
+	_target = node
+	target_offset = offset
+	if smooth_speed >= 0.0:
+		track_speed = smooth_speed
+
+
 func _process(delta: float) -> void:
 	var aim_pos := idle_target
 	if _target:

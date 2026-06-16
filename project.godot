@@ -16,7 +16,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 config/name="CG-ProjetoAB2 (Godot)"
 config/description="Football demo — replaces the OpenGL build with Godot 4 so we get PBR, shadows and GLB animations for free."
-run/main_scene="res://scenes/Main.tscn"
+run/main_scene="res://scenes/MainMenu.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
 
