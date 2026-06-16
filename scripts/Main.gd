@@ -33,15 +33,24 @@ const POWER_OPTIONS := [
 @export var touchline_z: float = 36.0
 @export var goal_half_width: float = 5.8
 @export var restart_delay: float = 1.15
-@export var throw_in_inset: float = 2.0
-@export var right_throw_in_inset: float = 0.75
+@export var throw_in_inset: float = 7.0
+@export var right_throw_in_inset: float = 7.0
+@export var throw_in_endline_inset: float = 50.0
 @export var corner_inset: float = 1.4
 @export var kickoff_ball_position: Vector3 = Vector3(0.0, 0.4, 0.0)
 @export var boundary_restart_margin: float = 0.35
+@export var touchline_restart_margin: float = 3.5
+@export var goal_kick_out_margin: float = 1.8
 @export var yellow_restart_pass_power: float = 5.8
 @export var yellow_restart_settle_time: float = 0.18
 @export var yellow_restart_grace_time: float = 1.1
 @export var restart_fade_time: float = 0.28
+@export var throw_in_kicker_recovery_time: float = 4.0
+@export var throw_in_kicker_hold_time: float = 4.0
+@export var throw_in_receiver_forward: float = 8.0
+@export var throw_in_receiver_inside: float = 7.0
+@export var throw_in_kicker_back: float = 1.2
+@export var throw_in_kicker_outside: float = 1.0
 
 @export_group("IA básica")
 @export var disable_ai_players_for_dribble_test: bool = false
@@ -206,6 +215,8 @@ var _red_tackle_cooldowns: Dictionary = {}
 var _stun_timers: Dictionary = {}
 var _red_dribble_phase: float = 0.0
 var _yellow_restart_grace_timer: float = 0.0
+var _throw_in_kicker: Node3D = null
+var _throw_in_kicker_hold_timer: float = 0.0
 var _ai_collision_radii: Dictionary = {}
 var _ai_kick_plans: Dictionary = {}
 var _ai_think_cooldowns: Dictionary = {}
@@ -670,11 +681,11 @@ func _check_ball_rules() -> void:
 			_register_goal(true)
 			return
 
-	if absf(pos.z) >= touchline_z - boundary_restart_margin:
+	if absf(pos.z) >= touchline_z - touchline_restart_margin:
 		_register_yellow_restart(pos, "LATERAL YELLOW")
 		return
 
-	if absf(pos.z) > goal_half_width and (pos.x <= left_goal_line_x + boundary_restart_margin or pos.x >= right_goal_line_x - boundary_restart_margin):
+	if absf(pos.z) > goal_half_width and (pos.x <= left_goal_line_x - goal_kick_out_margin or pos.x >= right_goal_line_x + goal_kick_out_margin):
 		_register_keeper_restart(pos)
 		return
 
@@ -722,6 +733,16 @@ func _register_yellow_restart(ball_pos: Vector3, status_text: String) -> void:
 
 	_stop_ball_motion(false)
 	_yellow_restart_pass_to_player(kicker)
+
+	if kicker != null:
+		_throw_in_kicker = kicker
+		_throw_in_kicker_hold_timer = throw_in_kicker_hold_time
+		_ai_velocities[kicker.get_instance_id()] = Vector3.ZERO
+		_stun_timers.erase(kicker.get_instance_id())
+	else:
+		_throw_in_kicker = null
+		_throw_in_kicker_hold_timer = 0.0
+
 	_yellow_restart_grace_timer = yellow_restart_grace_time
 	_show_status("")
 	_rules_locked = false
@@ -752,13 +773,15 @@ func _register_keeper_restart(ball_pos: Vector3) -> void:
 
 func _get_yellow_restart_position(ball_pos: Vector3) -> Vector3:
 	var clamped_z := clampf(ball_pos.z, -touchline_z + throw_in_inset, touchline_z - right_throw_in_inset)
+	var max_endline_inset := (right_goal_line_x - left_goal_line_x) * 0.5 - 0.1
+	var endline_inset := clampf(throw_in_endline_inset, corner_inset, max_endline_inset)
 	var restart := Vector3(
-		clampf(ball_pos.x, left_goal_line_x + corner_inset, right_goal_line_x - corner_inset),
+		clampf(ball_pos.x, left_goal_line_x + endline_inset, right_goal_line_x - endline_inset),
 		kickoff_ball_position.y,
 		clamped_z
 	)
 
-	if absf(ball_pos.z) >= touchline_z - boundary_restart_margin:
+	if absf(ball_pos.z) >= touchline_z - touchline_restart_margin:
 		var side_z := signf(ball_pos.z)
 		if side_z == 0.0:
 			side_z = 1.0
@@ -813,17 +836,36 @@ func _reset_match_state_for_restart() -> void:
 	_hold_throw_started = false
 	_penalty_waiting_for_kick = false
 	_penalty_ball_released = false
+	_throw_in_kicker = null
+	_throw_in_kicker_hold_timer = 0.0
+	
+	
+func _set_yellow_home(player_node: Node3D, new_home: Vector3) -> void:
+	if player_node == null:
+		return
+
+	new_home.y = 0.0
+
+	for slot in _yellow_defense:
+		if slot["node"] == player_node:
+			slot["home"] = new_home
+			return
 
 
 func _position_players_for_yellow_restart(restart_pos: Vector3, kicker: Node3D) -> void:
 	var side_z := signf(restart_pos.z)
 	if side_z == 0.0:
 		side_z = 1.0
+	var attack_dir := -1.0
+	var max_endline_inset := (right_goal_line_x - left_goal_line_x) * 0.5 - 0.1
+	var endline_inset := clampf(throw_in_endline_inset, corner_inset, max_endline_inset)
+	var min_restart_x := left_goal_line_x + endline_inset
+	var max_restart_x := right_goal_line_x - endline_inset
 
 	var player_receive := Vector3(
-		clampf(restart_pos.x - 11.0, left_goal_line_x + 8.0, 6.0),
+		clampf(restart_pos.x + attack_dir * throw_in_receiver_forward, min_restart_x, max_restart_x),
 		0.0,
-		clampf(restart_pos.z * 0.35, -12.0, 12.0)
+		clampf(restart_pos.z - side_z * throw_in_receiver_inside, -touchline_z + throw_in_inset + 2.0, touchline_z - right_throw_in_inset - 2.0)
 	)
 	_set_player_transform(_player, player_receive, restart_pos)
 
@@ -837,7 +879,11 @@ func _position_players_for_yellow_restart(restart_pos: Vector3, kicker: Node3D) 
 			continue
 		var target := yellow_positions[player_node] as Vector3
 		if player_node == kicker:
-			target = restart_pos + Vector3(-1.2, 0.0, -side_z * 0.7)
+			target = restart_pos + Vector3(attack_dir * throw_in_kicker_back, 0.0, side_z * throw_in_kicker_outside)
+			target.x = clampf(target.x, min_restart_x, max_restart_x)
+			target.z = clampf(target.z, -touchline_z + 1.0, touchline_z - 1.0)
+			_set_yellow_home(player_node, target)
+			
 		player_node.global_position = target
 		_face_node_at(player_node, player_receive)
 		_play_ai_anim(player_node, &"Idle", true)
@@ -1177,6 +1223,19 @@ func _update_match_ai(delta: float) -> void:
 		_ai_think_cooldowns[key] = maxf(float(_ai_think_cooldowns[key]) - delta, 0.0)
 	_red_dribble_phase += delta
 	_yellow_restart_grace_timer = maxf(_yellow_restart_grace_timer - delta, 0.0)
+	
+	if _throw_in_kicker != null and is_instance_valid(_throw_in_kicker):
+		_throw_in_kicker_hold_timer = maxf(_throw_in_kicker_hold_timer - delta, 0.0)
+
+		if _throw_in_kicker_hold_timer <= 0.0:
+			var kicker_id := _throw_in_kicker.get_instance_id()
+			_set_yellow_home(_throw_in_kicker, _throw_in_kicker.global_position)
+			_ai_velocities[kicker_id] = Vector3.ZERO
+			_stun_ai_player(_throw_in_kicker, throw_in_kicker_recovery_time)
+			_throw_in_kicker = null
+	else:
+		_throw_in_kicker = null
+		_throw_in_kicker_hold_timer = 0.0
 
 	if _ball_holder != null:
 		_update_players_for_keeper_throw(delta)
@@ -1222,6 +1281,17 @@ func _update_yellow_defense(delta: float) -> void:
 		if player_node == null:
 			continue
 
+		if _throw_in_kicker != null and is_instance_valid(_throw_in_kicker) and player_node == _throw_in_kicker:
+			if _throw_in_kicker_hold_timer > 0.0:
+				_ai_velocities[player_node.get_instance_id()] = Vector3.ZERO
+
+				var body := player_node.get_node_or_null("NpcBodyCollider") as AnimatableBody3D
+				if body:
+					body.global_position = player_node.global_position
+
+				_set_ai_motion_anim(player_node, false)
+				_face_ai_player_focus(player_node, ball_pos, delta)
+				continue
 		var home := slot["home"] as Vector3
 		var lane_side := float(index - 1)
 
@@ -2699,7 +2769,7 @@ func _create_field_walls() -> void:
 	var body := StaticBody3D.new()
 	body.name = "FieldWalls"
 	body.collision_layer = 32
-	body.collision_mask = 4
+	body.collision_mask = 7
 
 	var seg_length := touchline_z - goal_half_width
 	var seg_center_z := goal_half_width + seg_length * 0.5
@@ -2708,23 +2778,23 @@ func _create_field_walls() -> void:
 	# Laterais
 	_add_field_wall(body, "SideNorth",
 		Vector3(left_goal_line_x + field_len * 0.5, 0.5, -(touchline_z + 0.5)),
-		Vector3(field_len, 2.0, 1.0))
+		Vector3(field_len + 5, 2.0, 1.0))
 	_add_field_wall(body, "SideSouth",
 		Vector3(left_goal_line_x + field_len * 0.5, 0.5, touchline_z + 0.5),
-		Vector3(field_len, 2.0, 1.0))
+		Vector3(field_len + 5, 2.0, 1.0))
 
 	# Linhas de fundo com abertura do gol
 	_add_field_wall(body, "EndLeftNorth",
-		Vector3(left_goal_line_x - 0.5, 0.5, -seg_center_z),
+		Vector3(left_goal_line_x - 2.0, 0.5, -seg_center_z),
 		Vector3(1.0, 2.0, seg_length))
 	_add_field_wall(body, "EndLeftSouth",
-		Vector3(left_goal_line_x - 0.5, 0.5, seg_center_z),
+		Vector3(left_goal_line_x - 2.0, 0.5, seg_center_z),
 		Vector3(1.0, 2.0, seg_length))
 	_add_field_wall(body, "EndRightNorth",
-		Vector3(right_goal_line_x + 0.5, 0.5, -seg_center_z),
+		Vector3(right_goal_line_x + 2.0, 0.5, -seg_center_z),
 		Vector3(1.0, 2.0, seg_length))
 	_add_field_wall(body, "EndRightSouth",
-		Vector3(right_goal_line_x + 0.5, 0.5, seg_center_z),
+		Vector3(right_goal_line_x + 2.0, 0.5, seg_center_z),
 		Vector3(1.0, 2.0, seg_length))
 
 	add_child(body)
