@@ -152,12 +152,7 @@ const POWER_OPTIONS := [
 @export var keeper_throw_windup: float = 0.85 # tempo com a bola na mão antes de soltar (anim Throw)
 @export var keeper_throw_min_power: float = 5.8
 @export var keeper_throw_max_power: float = 9.5
-@export var keeper_clearance_power: float = 18.0
-@export var keeper_clearance_windup: float = 0.35
-@export var keeper_clearance_step_out: float = 3.2
 @export var keeper_hand_lift: float = 0.08    # leve ajuste da bola na mão
-@export var keeper_small_area_depth: float = 7.0
-@export var keeper_small_area_half_width: float = 10.0
 @export var keeper_area_depth: float = 16.0
 @export var keeper_area_half_width: float = 18.0
 @export var keeper_area_clear_margin: float = 1.5
@@ -224,7 +219,6 @@ var _hold_timer: float = 0.0             # tempo restante segurando a bola antes
 var _hold_target: Node3D = null          # pra quem o goleiro vai arremessar
 var _hold_line_x: float = 0.0            # linha do gol do goleiro que está segurando
 var _hold_throw_started: bool = false
-var _hold_clearance: bool = false        # reposição forte para frente, usada quando domina a pequena área
 var _rng := RandomNumberGenerator.new()
 var _star_available: bool = false
 var _star_spawn_timer: float = 0.0
@@ -817,7 +811,6 @@ func _reset_match_state_for_restart() -> void:
 	_hold_target = null
 	_hold_timer = 0.0
 	_hold_throw_started = false
-	_hold_clearance = false
 	_penalty_waiting_for_kick = false
 	_penalty_ball_released = false
 
@@ -925,7 +918,6 @@ func _place_ball_in_keeper_hands(keeper: Node3D, line_x: float) -> void:
 	_hold_line_x = line_x
 	_hold_target = _player if keeper == _yellow_keeper else _red_attacker
 	_hold_throw_started = false
-	_hold_clearance = false
 	_ball.freeze = true
 	_ball.linear_velocity = Vector3.ZERO
 	_ball.angular_velocity = Vector3.ZERO
@@ -975,7 +967,6 @@ func _reset_ball(position: Vector3) -> void:
 	_hold_target = null
 	_hold_timer = 0.0
 	_hold_throw_started = false
-	_hold_clearance = false
 	_penalty_waiting_for_kick = false
 	_penalty_ball_released = false
 	_ball.freeze = true
@@ -1188,8 +1179,7 @@ func _update_match_ai(delta: float) -> void:
 	_yellow_restart_grace_timer = maxf(_yellow_restart_grace_timer - delta, 0.0)
 
 	if _ball_holder != null:
-		if not _hold_clearance:
-			_update_players_for_keeper_throw(delta)
+		_update_players_for_keeper_throw(delta)
 		_update_goalkeeper(_yellow_keeper, left_goal_line_x + keeper_line_offset, delta)
 		_update_goalkeeper(_red_defender, right_goal_line_x - keeper_line_offset, delta)
 		return
@@ -1399,15 +1389,12 @@ func _update_goalkeeper(keeper: Node3D, line_x: float, delta: float) -> void:
 		var hvel := Vector3(_ball.linear_velocity.x, 0.0, _ball.linear_velocity.z)
 		var toward_goal := _ball.linear_velocity.x * signf(line_x) > 1.0
 		var ball_slow := hvel.length() < keeper_shot_speed
-		var ball_in_small_area := _is_inside_keeper_small_area(ball_pos, line_x)
 
-		if ball_in_small_area:
-			_keeper_catch(keeper, line_x, true)
-		elif dist_ball <= keeper_catch_distance and (toward_goal or ball_slow):
+		if dist_ball <= keeper_catch_distance and (toward_goal or ball_slow):
 			# Defesa: a bola chegou ao alcance vindo pro gol (ou parada perto) ->
 			# agarra e parte pro arremesso. A condição evita re-pegar a bola que
 			# o próprio goleiro acabou de arremessar (que sai rápida e pro campo).
-			_keeper_catch(keeper, line_x, false)
+			_keeper_catch(keeper, line_x)
 		elif cd <= 0.0 and dist_ball <= keeper_dive_distance and toward_goal and hvel.length() >= keeper_shot_speed:
 			# Chute indo pro canto: mergulha pro lado da bola (o colisor maior ajuda a pegar).
 			var ball_side := signf(ball_pos.z - next_pos.z)
@@ -1424,15 +1411,14 @@ func _update_goalkeeper(keeper: Node3D, line_x: float, delta: float) -> void:
 ## Defesa: o goleiro pega a bola. Ela é congelada e passa a ser segurada na mão;
 ## dispara a animação de arremesso e define o alvo do passe (player p/ o amarelo,
 ## atacante p/ o vermelho).
-func _keeper_catch(keeper: Node3D, line_x: float, clearance: bool = false) -> void:
+func _keeper_catch(keeper: Node3D, line_x: float) -> void:
 	if _ball == null:
 		return
 	_ball_holder = keeper
-	_hold_timer = keeper_clearance_windup if clearance else keeper_throw_windup
+	_hold_timer = keeper_throw_windup
 	_hold_line_x = line_x
 	_hold_target = _player
 	_hold_throw_started = false
-	_hold_clearance = clearance
 	_ball.freeze = true
 	_ball.linear_velocity = Vector3.ZERO
 	_ball.angular_velocity = Vector3.ZERO
@@ -1449,25 +1435,14 @@ func _update_keeper_hold(keeper: Node3D, delta: float) -> void:
 		_ball.linear_velocity = Vector3.ZERO
 		_ball.angular_velocity = Vector3.ZERO
 
-	if _hold_clearance:
-		var clearance_spot := _keeper_clearance_spot(keeper)
-		var previous_pos := keeper.global_position
-		keeper.global_position = keeper.global_position.move_toward(clearance_spot, keeper_clear_area_speed * delta)
-		var moved_distance := _ground_distance(previous_pos, keeper.global_position)
-		var ground_speed := moved_distance / delta if delta > 0.0 else 0.0
-		_face_node_at(keeper, clearance_spot + Vector3((1.0 if _hold_line_x < 0.0 else -1.0) * 10.0, 0.0, 0.0))
-		_set_ai_motion_anim(keeper, moved_distance > 0.01, ground_speed)
-		if _ground_distance(keeper.global_position, clearance_spot) > 0.15:
-			return
-
-	if not _hold_clearance and not _keeper_area_clear_for_throw():
+	if not _keeper_area_clear_for_throw():
 		_hold_timer = keeper_throw_windup
 		_set_ai_motion_anim(keeper, false)
 		return
 
 	if not _hold_throw_started:
 		_hold_throw_started = true
-		_hold_timer = keeper_clearance_windup if _hold_clearance else keeper_throw_windup
+		_hold_timer = keeper_throw_windup
 		_play_ai_anim(keeper, &"Throw", true)
 
 	_hold_timer -= delta
@@ -1484,10 +1459,7 @@ func _keeper_release(keeper: Node3D) -> void:
 
 	var from := _ball.global_position
 	var to: Vector3
-	if _hold_clearance:
-		var out_dir := 1.0 if _hold_line_x < 0.0 else -1.0
-		to = keeper.global_position + Vector3(out_dir * 34.0, 0.55, clampf(-keeper.global_position.z * 0.35, -8.0, 8.0))
-	elif _hold_target != null and is_instance_valid(_hold_target):
+	if _hold_target != null and is_instance_valid(_hold_target):
 		to = _hold_target.global_position + Vector3(0.0, 0.55, 0.0)
 		var tvel: Variant = _hold_target.get("velocity")
 		if tvel is Vector3:
@@ -1501,8 +1473,6 @@ func _keeper_release(keeper: Node3D) -> void:
 		flat = Vector3(-signf(_hold_line_x), 0.0, 0.0)
 	var aim := flat.normalized()
 	var power := clampf(flat.length() * 0.45, keeper_throw_min_power, keeper_throw_max_power)
-	if _hold_clearance:
-		power = keeper_clearance_power
 
 	_ball.freeze = false
 	_ball.sleeping = false
@@ -1515,17 +1485,7 @@ func _keeper_release(keeper: Node3D) -> void:
 	_ball_holder = null
 	_hold_target = null
 	_hold_throw_started = false
-	_hold_clearance = false
 	_keeper_action_cd[keeper.get_instance_id()] = keeper_action_cooldown
-
-
-func _keeper_clearance_spot(keeper: Node3D) -> Vector3:
-	var out_dir := 1.0 if _hold_line_x < 0.0 else -1.0
-	return Vector3(
-		_hold_line_x + out_dir * keeper_clearance_step_out,
-		keeper_ground_y,
-		clampf(keeper.global_position.z, -keeper_small_area_half_width + 1.0, keeper_small_area_half_width - 1.0)
-	)
 
 
 func _update_players_for_keeper_throw(delta: float) -> void:
@@ -1576,20 +1536,6 @@ func _is_inside_keeper_area(position: Vector3, margin: float = 0.0) -> bool:
 	if goal_sign < 0.0:
 		return position.x <= boundary_x
 	return position.x >= boundary_x
-
-
-func _is_inside_keeper_small_area(position: Vector3, line_x: float, margin: float = 0.0) -> bool:
-	var goal_sign := signf(line_x)
-	if goal_sign == 0.0:
-		goal_sign = -1.0
-
-	if absf(position.z) > keeper_small_area_half_width + margin:
-		return false
-
-	var depth := keeper_small_area_depth + margin
-	if goal_sign < 0.0:
-		return position.x <= left_goal_line_x + depth
-	return position.x >= right_goal_line_x - depth
 
 
 func _keeper_area_boundary_x(margin: float = 0.0) -> float:
@@ -2474,7 +2420,6 @@ func _reset_ai_for_restart() -> void:
 	_hold_target = null
 	_hold_timer = 0.0
 	_hold_throw_started = false
-	_hold_clearance = false
 	for slot in _yellow_defense:
 		var player_node := slot["node"] as Node3D
 		if player_node == null:
