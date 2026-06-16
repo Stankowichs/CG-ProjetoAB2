@@ -1,4 +1,5 @@
 # CG-ProjetoAB2 - Godot 4
+##Alunos : Hugo Stankowich, Lucca Paes e Renato Coca
 
 Projeto de computacao grafica feito em Godot 4: uma demo 3D de futebol com jogador controlavel, camera de transmissao, IA simples para os times, goleiros, placar, sons, reinicios de jogo e power-ups.
 
