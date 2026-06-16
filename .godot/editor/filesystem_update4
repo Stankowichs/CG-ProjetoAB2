@@ -1,4 +1,2 @@
 res://scripts/Main.gd
-res://scripts/StadiumColliders.gd
-res://scripts/Player.gd
-res://scripts/StadiumCrowd.gd
+res://scripts/StarSpin.gd

@@ -4,7 +4,7 @@ extends Node3D
 ## Quando você dropar o gold_star.glb, troque o placeholder por uma instância dele.
 
 @export var spin_speed: float = 1.8       # rad/s
-@export var bob_amp:    float = 0.15      # metros
+@export var bob_amp:    float = 0.28      # metros
 @export var bob_freq:   float = 1.4       # Hz
 
 var _t: float = 0.0

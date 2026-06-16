@@ -1,5 +1,5 @@
 63f7b34db8d8cdea90c76aacccf841ec
-::res://::1781554349
+::res://::1781576878
 FieldBounds.gd::GDScript::2420527756791204248::1781380785::0::1::::<>Node3D<><>0<>0<><>::
 icon.svg::CompressedTexture2D::5256268407987331753::1781280304::1781554349::1::::<><><>0<>0<>c60719af9bfdffb109d3120eaba7e92b<>res://.godot/imported/icon.svg-218a8f2b3041327d8a5756f3a245f83b.ctex::
 placar.png::CompressedTexture2D::5469862508935291874::1781304738::1781304979::1::::<><><>0<>0<>8ca93643c3e82cb9c860c8e26bf60c8e<>res://.godot/imported/placar.png-f623d48e6ece9254a416cbd1f6c19b03.ctex::
@@ -23,6 +23,12 @@ Soccer Pass.fbx::PackedScene::6171358259883252354::1781280610::1781281167::1::::
 Soccer Penalty Kick.fbx::PackedScene::1239228662544172858::1781280648::1781281167::1::::<><><>0<>0<>a861a8f26eb1cc83a90e5e25ddf1f176<>res://.godot/imported/Soccer Penalty Kick.fbx-4f692812503c8dcb6b62fa9caa155e09.scn::
 Soccer Tackle.fbx::PackedScene::5022462515436051424::1781311892::1781311968::1::::<><><>0<>0<>25c655b83698570320437d512d1c3e4a<>res://.godot/imported/Soccer Tackle.fbx-d3811069abee092b675f832ef1e07e7c.scn::
 Soccer Trip.fbx::PackedScene::8412384434810822987::1781311898::1781311968::1::::<><><>0<>0<>5dd4116c69a21133e3a49f75e72953b6<>res://.godot/imported/Soccer Trip.fbx-d9ae13e50a6f99d41839a8137921a888.scn::
+::res://audio/::1781574533
+apito.ogg::AudioStreamOggVorbis::2464527538170971653::1781574080::1781574533::1::::<><><>0<>0<>67dca07daff8d8ddc4ba3d640ebf918c<>res://.godot/imported/apito.ogg-5dc13eff8c65cf66393372849e275e13.oggvorbisstr::
+gol1.ogg::AudioStreamOggVorbis::3053913258662361031::1781574080::1781574533::1::::<><><>0<>0<>5834f8a28e2b407ba7ff82067297330b<>res://.godot/imported/gol1.ogg-49f39d327051a3af904d464bf7788224.oggvorbisstr::
+mixkit-soccer-ball-kick-2099.ogg::AudioStreamOggVorbis::948472797930635152::1781574080::1781574533::1::::<><><>0<>0<>fa75ded4f5f53d35c9eb0096ff7c3205<>res://.godot/imported/mixkit-soccer-ball-kick-2099.ogg-0ce68fee9a992eba7ccc4a6afe9ffed1.oggvorbisstr::
+mixkit-stadium-joy-shouting-crowd-3022.ogg::AudioStreamOggVorbis::6555641389887865360::1781574080::1781574533::1::::<><><>0<>0<>281f7b11786f84c5d9fc8bc0fc36356c<>res://.godot/imported/mixkit-stadium-joy-shouting-crowd-3022.ogg-6ad16236eb77695cb7338c94b3e8e1d0.oggvorbisstr::
+throw-ball.ogg::AudioStreamOggVorbis::1935916430858686829::1781574080::1781574533::1::::<><><>0<>0<>749aac305f2c0dc25c18f6ee87359a15<>res://.godot/imported/throw-ball.ogg-1ba740c2a608d20941d78d60dbaae839.oggvorbisstr::
 ::res://models/::1781567222
 al_wakrah_stadium_worldcup_2022.glb::PackedScene::3077481529121018072::1781280304::1781280304::1::::<><><>0<>0<>19bcf92a5ea061139f95976a5e915098<>res://.godot/imported/al_wakrah_stadium_worldcup_2022.glb-6d7f9c70e559a494ff96f4ee7c641684.scn::uid://blxto8l3kog8k::::res://models/al_wakrah_stadium_worldcup_2022_0.png<>uid://djctdqvthjqsm::::res://models/al_wakrah_stadium_worldcup_2022_1.jpg<>uid://dte2bjifisweu::::res://models/al_wakrah_stadium_worldcup_2022_2.png<>uid://dmkvwsr6p1xsm::::res://models/al_wakrah_stadium_worldcup_2022_3.png
 al_wakrah_stadium_worldcup_2022_0.png::CompressedTexture2D::3207159027581580372::1781280304::1781280304::1::::<><><>0<>0<>9fdcbd52f89a26fb6847351b2f1a88c6<>res://.godot/imported/al_wakrah_stadium_worldcup_2022_0.png-944ca28e0d561870d9d5216a009a43b5.s3tc.ctex::
@@ -272,22 +278,22 @@ body_d.jpeg::CompressedTexture2D::1363270926257710536::1669558744::1781554349::1
 body_n.jpeg::CompressedTexture2D::7043790630517900914::1669558742::1781554349::1::::<><><>0<>0<>0efec535642f26c0141ddae67b3afb94<>res://.godot/imported/body_n.jpeg-3d9307098e7f07f7a587621aef870e5a.ctex::
 body_s.jpeg::CompressedTexture2D::6839751870109524879::1669558744::1781554349::1::::<><><>0<>0<>91d0c267c36eb86421d92eb106a07658<>res://.godot/imported/body_s.jpeg-10c7fb8624b15f31f29f5a332cda6902.ctex::
 ::res://scenes/::1781567299
-Main.tscn::PackedScene::168495289208767::1781567299::0::1::::<><><>0<>0<><>::uid://b1player2024::::res://scenes/Player.tscn<>uid://7fdph5pkg3of::::res://scripts/StarSpin.gd<>uid://byqnds1qocuuu::::res://models/stadium.glb<>uid://7wyxwqi8urrv::::res://models/star.glb<>uid://njyxol33x0tl::::res://models/player_yellow.glb<>uid://bes5vt4iwubv6::::res://models/player_red.glb<>res://models/hulk_keeper_red.glb<>res://models/hulk_keeper_yellow.glb<>res://scripts/KeeperStandStill.gd<>uid://bnes8pvt6xssv::::res://scripts/StadiumLights.gd<>uid://cfkv5gykf5um0::::res://scripts/BroadcastCamera.gd<>uid://cyv0konvdhwdg::::res://scripts/StadiumColliders.gd<>uid://dycrafsv0rxyg::::res://models/ball.glb<>uid://dlf434bbx1vqh::::res://scripts/Main.gd<>res://models/crowd.glb<>res://scripts/CrowdColors.gd
+Main.tscn::PackedScene::168495289208767::1781575608::0::1::::<><><>0<>0<><>::uid://b1player2024::::res://scenes/Player.tscn<>uid://7fdph5pkg3of::::res://scripts/StarSpin.gd<>uid://byqnds1qocuuu::::res://models/stadium.glb<>uid://7wyxwqi8urrv::::res://models/star.glb<>uid://njyxol33x0tl::::res://models/player_yellow.glb<>uid://bes5vt4iwubv6::::res://models/player_red.glb<>res://models/hulk_keeper_red.glb<>res://models/hulk_keeper_yellow.glb<>res://scripts/KeeperStandStill.gd<>uid://bnes8pvt6xssv::::res://scripts/StadiumLights.gd<>uid://cfkv5gykf5um0::::res://scripts/BroadcastCamera.gd<>uid://cyv0konvdhwdg::::res://scripts/StadiumColliders.gd<>uid://dycrafsv0rxyg::::res://models/ball.glb<>uid://dlf434bbx1vqh::::res://scripts/Main.gd<>res://models/crowd.glb<>res://scripts/CrowdColors.gd
 Player.tscn::PackedScene::124793101148893823::1781558062::0::1::::<><><>0<>0<><>::uid://blns5w0yk6mxw::::res://scripts/Player.gd<>uid://fpnka2fj6xf2::::res://models/ronaldo.glb
-::res://scripts/::1781567269
+::res://scripts/::1781575403
 bake_anims.gd::GDScript::1307646540111467703::1781296644::0::1::::<>SceneTree<><>0<>0<><>::
 bake_keeper_anims.gd::GDScript::6088562966203759763::1781370102::0::1::::<>SceneTree<><>0<>0<><>::
 BroadcastCamera.gd::GDScript::5145758346459849857::1781280304::0::1::::<>Camera3D<><>0<>0<><>::
 CrowdColors.gd::GDScript::5108439184509782024::1781567269::0::1::::<>Node3D<><>0<>0<><>::
 GroundShadow.gd::GDScript::2493160992293340031::1781280304::0::1::::<>Node3D<><>0<>0<><>::
 KeeperStandStill.gd::GDScript::6494926637035355253::1781369048::0::1::::<>Node3D<><>0<>0<><>::
-Main.gd::GDScript::7943473539686699291::1781564850::0::1::::<>Node3D<><>0<>0<><>::
-Player.gd::GDScript::3186482549440037804::1781563138::0::1::::<>CharacterBody3D<><>0<>0<><>::
+Main.gd::GDScript::7943473539686699291::1781576771::0::1::::<>Node3D<><>0<>0<><>::
+Player.gd::GDScript::3186482549440037804::1781574080::0::1::::<>CharacterBody3D<><>0<>0<><>::
 StadiumColliders.gd::GDScript::6502262086660258188::1781555222::0::1::::<>Node3D<><>0<>1<><>::
 StadiumCrowd.gd::GDScript::3125931097291459234::1781565532::0::1::::<>Node3D<><>0<>1<><>::
 StadiumLights.gd::GDScript::3308285820269188873::1781280304::0::1::::<>Node3D<><>0<>0<><>::
 StarSpin.gd::GDScript::2256574237776954881::1781280304::0::1::::<>Node3D<><>0<>0<><>::
-::res://scripts/blender/::1781309105
+::res://scripts/blender/::1781567454
 ::res://shaders/::1781280304
 grass.gdshader::Shader::1258105780158881470::1781280304::0::1::::<><><>0<>0<><>::
 ::res://textures/::1781280304

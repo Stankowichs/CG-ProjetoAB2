@@ -16,6 +16,17 @@ const ACTION_ANIMS := {
 	&"ScissorKick": true, &"DiveA": true, &"DiveB": true, &"Throw": true,
 }
 
+const POWER_PENALTY := "penalty"
+const POWER_SUPER_CONTROL := "super_control"
+const POWER_SUPER_SPEED := "super_speed"
+const POWER_SUPER_KICK := "super_kick"
+const POWER_OPTIONS := [
+	{"key": POWER_PENALTY, "name": "PENALTI"},
+	{"key": POWER_SUPER_CONTROL, "name": "SUPER CONDUCAO"},
+	{"key": POWER_SUPER_SPEED, "name": "SUPER VELOCIDADE"},
+	{"key": POWER_SUPER_KICK, "name": "SUPER CHUTE"},
+]
+
 @export_group("Regras do campo")
 @export var left_goal_line_x: float = -51.5
 @export var right_goal_line_x: float = 48.0
@@ -23,6 +34,7 @@ const ACTION_ANIMS := {
 @export var goal_half_width: float = 5.8
 @export var restart_delay: float = 1.15
 @export var throw_in_inset: float = 2.0
+@export var right_throw_in_inset: float = 0.75
 @export var corner_inset: float = 1.4
 @export var kickoff_ball_position: Vector3 = Vector3(0.0, 0.4, 0.0)
 @export var boundary_restart_margin: float = 0.35
@@ -55,7 +67,12 @@ const ACTION_ANIMS := {
 @export var yellow_recovery_pass_power: float = 7.0
 @export var red_counter_tackle_distance: float = 1.75
 @export var red_counter_tackle_power: float = 8.0
-@export var red_shot_distance_from_goal: float = 12.0
+@export var player_counter_tackle_radius: float = 3.25
+@export var player_counter_tackle_power: float = 10.5
+@export var player_counter_tackle_cooldown: float = 0.65
+@export var red_shot_distance_from_goal: float = 17.0
+@export var red_shot_turn_time: float = 0.12
+@export var red_shot_think_cooldown: float = 0.75
 @export var yellow_tackle_control_distance: float = 0.78
 @export var ai_recovery_stun: float = 0.55       # quanto tempo o jogador que perdeu a bola fica se recompondo
 @export var ai_tackle_settle: float = 0.28        # pequena pausa do tackler logo após dar o bote
@@ -135,11 +152,34 @@ const ACTION_ANIMS := {
 @export var keeper_throw_windup: float = 0.85 # tempo com a bola na mão antes de soltar (anim Throw)
 @export var keeper_throw_min_power: float = 5.8
 @export var keeper_throw_max_power: float = 9.5
+@export var keeper_clearance_power: float = 18.0
+@export var keeper_clearance_windup: float = 0.35
+@export var keeper_clearance_step_out: float = 3.2
 @export var keeper_hand_lift: float = 0.08    # leve ajuste da bola na mão
+@export var keeper_small_area_depth: float = 7.0
+@export var keeper_small_area_half_width: float = 10.0
 @export var keeper_area_depth: float = 16.0
 @export var keeper_area_half_width: float = 18.0
 @export var keeper_area_clear_margin: float = 1.5
 @export var keeper_clear_area_speed: float = 7.0
+
+@export_group("Power-ups")
+@export var star_pickup_radius: float = 2.7
+@export var star_height: float = 1.8
+@export var star_spawn_interval_min: float = 7.0
+@export var star_spawn_interval_max: float = 13.0
+@export var star_visible_time: float = 9.0
+@export var star_field_margin: float = 3.0
+@export var roulette_spin_time: float = 2.2
+@export var roulette_tick_time: float = 0.11
+@export var power_duration: float = 8.0
+@export var super_speed_walk_mult: float = 1.45
+@export var super_speed_sprint_mult: float = 1.25
+@export var super_control_distance_bonus: float = 0.55
+@export var super_control_force_mult: float = 1.8
+@export var super_control_dribble_mult: float = 2.2
+@export var super_kick_power_mult: float = 1.55
+@export var super_kick_lift_mult: float = 1.25
 
 var _snd_kick: AudioStreamPlayer = null
 var _snd_goal: AudioStreamPlayer = null
@@ -154,12 +194,18 @@ var _scoreboard: Control = null
 var _bra_score_label: Label = null
 var _mar_score_label: Label = null
 var _status_label: Label = null
+var _power_panel: Control = null
+var _power_name_label: Label = null
+var _power_timer_label: Label = null
+var _roulette_panel: Control = null
+var _roulette_label: Label = null
 var _transition_rect: ColorRect = null
 var _score_pulse_timer: float = 0.0
 var _ai_animation_players: Dictionary = {}
 var _yellow_defense: Array[Dictionary] = []
 var _red_pass_cooldown: float = 0.0
 var _red_shot_cooldown: float = 0.0
+var _player_counter_tackle_timer: float = 0.0
 var _yellow_tackle_cooldowns: Dictionary = {}
 var _red_tackle_cooldowns: Dictionary = {}
 var _stun_timers: Dictionary = {}
@@ -178,9 +224,22 @@ var _hold_timer: float = 0.0             # tempo restante segurando a bola antes
 var _hold_target: Node3D = null          # pra quem o goleiro vai arremessar
 var _hold_line_x: float = 0.0            # linha do gol do goleiro que está segurando
 var _hold_throw_started: bool = false
+var _hold_clearance: bool = false        # reposição forte para frente, usada quando domina a pequena área
+var _rng := RandomNumberGenerator.new()
+var _star_available: bool = false
+var _star_spawn_timer: float = 0.0
+var _star_visible_timer: float = 0.0
+var _roulette_running: bool = false
+var _active_power_key: String = ""
+var _active_power_name: String = ""
+var _active_power_timer: float = 0.0
+var _player_power_base: Dictionary = {}
+var _penalty_waiting_for_kick: bool = false
+var _penalty_ball_released: bool = false
 
 @onready var _ball: RigidBody3D = $Ball
 @onready var _player: Node3D = $Player
+@onready var _star: Node3D = get_node_or_null("Star") as Node3D
 @onready var _yellow_defender: Node3D = get_node_or_null("TeamYellow_02") as Node3D
 @onready var _yellow_mid_left: Node3D = get_node_or_null("TeamYellow_03") as Node3D
 @onready var _yellow_mid_right: Node3D = get_node_or_null("TeamYellow_04") as Node3D
@@ -193,12 +252,16 @@ var _hold_throw_started: bool = false
 
 
 func _ready() -> void:
+	_rng.randomize()
 	_setup_audio()
 	_setup_match_ai()
 	if disable_ai_players_for_dribble_test:
 		_disable_ai_players_for_dribble_test()
+	_capture_player_power_base()
+	_prepare_star_spawn_cycle()
 	_create_scoreboard()
 	_update_scoreboard()
+	_update_power_hud()
 	_create_field_walls()
 	call_deferred("_hide_collision_debug_shapes")
 
@@ -231,12 +294,16 @@ func _create_audio_player(path: String) -> AudioStreamPlayer:
 
 func _process(delta: float) -> void:
 	_update_score_pulse(delta)
+	_update_power_state(delta)
+	_update_star_pickup(delta)
+	_update_penalty_wait_for_kick()
 	_check_ball_rules()
 
 
 func _physics_process(delta: float) -> void:
 	if _rules_locked:
 		return
+	_update_player_counter_tackle(delta)
 	if disable_ai_players_for_dribble_test:
 		return
 	_update_match_ai(delta)
@@ -254,6 +321,346 @@ func _reload_match() -> void:
 		tree.reload_current_scene()
 	else:
 		tree.change_scene_to_file(MAIN_SCENE_PATH)
+
+
+func _update_player_counter_tackle(delta: float) -> void:
+	_player_counter_tackle_timer = maxf(_player_counter_tackle_timer - delta, 0.0)
+	if _player == null or _ball == null or _ball_holder != null:
+		return
+	if not Input.is_action_just_pressed("tackle") or _player_counter_tackle_timer > 0.0:
+		return
+
+	var red_carrier := _get_red_ball_carrier()
+	if red_carrier == null:
+		return
+
+	var player_pos := _player.global_position
+	player_pos.y = 0.0
+	var carrier_pos := red_carrier.global_position
+	carrier_pos.y = 0.0
+	var ball_pos := _ball_ground_position()
+	var close_to_carrier := _ground_distance(player_pos, carrier_pos) <= player_counter_tackle_radius
+	var close_to_ball := _ground_distance(player_pos, ball_pos) <= player_counter_tackle_radius
+	if not close_to_carrier and not close_to_ball:
+		return
+
+	var to_ball := ball_pos - player_pos
+	to_ball.y = 0.0
+	var tackle_dir := _player_facing_dir()
+	if to_ball.length() > 0.05:
+		tackle_dir = (tackle_dir * 0.7 + to_ball.normalized() * 0.3).normalized()
+
+	var horizontal_velocity := Vector3(_ball.linear_velocity.x, 0.0, _ball.linear_velocity.z)
+	if horizontal_velocity.length() > 4.0:
+		horizontal_velocity = horizontal_velocity.normalized() * 4.0
+	_ball.linear_velocity = Vector3(horizontal_velocity.x, minf(_ball.linear_velocity.y, 0.8), horizontal_velocity.z) * 0.35
+	_ball.angular_velocity *= 0.25
+	_ball.sleeping = false
+	_ball.apply_central_impulse(tackle_dir * player_counter_tackle_power + Vector3.UP * (player_counter_tackle_power * 0.05))
+	_stun_ai_player(red_carrier, ai_recovery_stun + 0.2)
+	_ai_kick_plans.erase(red_carrier.get_instance_id())
+	_player_counter_tackle_timer = player_counter_tackle_cooldown
+	if _snd_kick:
+		_snd_kick.play()
+
+
+func _player_facing_dir() -> Vector3:
+	if _player == null:
+		return Vector3.FORWARD
+	var dir := _player.global_transform.basis.z
+	dir.y = 0.0
+	if dir.length() < 0.01:
+		return Vector3.FORWARD
+	return dir.normalized()
+
+
+func _capture_player_power_base() -> void:
+	if _player == null:
+		return
+	for property_name in [
+		"walk_speed", "sprint_mult", "accel",
+		"kick_min_power", "kick_max_power", "kick_lift",
+		"dribble_push", "control_distance", "control_pull_strength",
+		"control_max_force", "control_max_extra_speed",
+	]:
+		_player_power_base[property_name] = _player.get(property_name)
+
+
+func _update_power_state(delta: float) -> void:
+	if _star_available:
+		_star_visible_timer = maxf(_star_visible_timer - delta, 0.0)
+		if _star_visible_timer <= 0.0:
+			_hide_star_until_next_spawn()
+	elif not _roulette_running:
+		_star_spawn_timer = maxf(_star_spawn_timer - delta, 0.0)
+		if _star_spawn_timer <= 0.0:
+			_respawn_star()
+
+	if _active_power_timer <= 0.0:
+		return
+
+	_active_power_timer = maxf(_active_power_timer - delta, 0.0)
+	if _active_power_timer <= 0.0:
+		_restore_player_power_defaults()
+		_active_power_key = ""
+		_active_power_name = ""
+		_show_status("")
+	_update_power_hud()
+
+
+func _update_star_pickup(_delta: float) -> void:
+	if _star == null or _player == null or not _star_available or _roulette_running:
+		return
+	if _distance_to_star_from_player() > star_pickup_radius:
+		return
+	_start_power_roulette()
+
+
+func _start_power_roulette() -> void:
+	if _roulette_running:
+		return
+
+	_roulette_running = true
+	_star_available = false
+	_schedule_next_star_spawn()
+	_set_star_visible(false)
+	_show_roulette(true, "RODANDO...")
+
+	var elapsed := 0.0
+	var index := _rng.randi_range(0, POWER_OPTIONS.size() - 1)
+	while elapsed < roulette_spin_time:
+		var option := POWER_OPTIONS[index] as Dictionary
+		_show_roulette(true, String(option["name"]))
+		index = (index + 1) % POWER_OPTIONS.size()
+		await get_tree().create_timer(roulette_tick_time).timeout
+		elapsed += roulette_tick_time
+
+	var result := POWER_OPTIONS[_rng.randi_range(0, POWER_OPTIONS.size() - 1)] as Dictionary
+	_show_roulette(true, String(result["name"]))
+	await get_tree().create_timer(0.55).timeout
+	_show_roulette(false)
+	await _apply_power_result(result)
+	_roulette_running = false
+
+
+func _apply_power_result(power: Dictionary) -> void:
+	var key := String(power.get("key", ""))
+	var display_name := String(power.get("name", key))
+	_restore_player_power_defaults()
+	_active_power_key = key
+	_active_power_name = display_name
+
+	if key == POWER_PENALTY:
+		_active_power_timer = 0.0
+		_update_power_hud()
+		await _setup_penalty_power()
+		return
+
+	_active_power_timer = power_duration
+	match key:
+		POWER_SUPER_CONTROL:
+			_set_player_power_value("control_distance", _player_power_float("control_distance") + super_control_distance_bonus)
+			_set_player_power_value("control_pull_strength", _player_power_float("control_pull_strength") * super_control_force_mult)
+			_set_player_power_value("control_max_force", _player_power_float("control_max_force") * super_control_force_mult)
+			_set_player_power_value("control_max_extra_speed", _player_power_float("control_max_extra_speed") + 1.6)
+			_set_player_power_value("dribble_push", _player_power_float("dribble_push") * super_control_dribble_mult)
+		POWER_SUPER_SPEED:
+			_set_player_power_value("walk_speed", _player_power_float("walk_speed") * super_speed_walk_mult)
+			_set_player_power_value("sprint_mult", _player_power_float("sprint_mult") * super_speed_sprint_mult)
+			_set_player_power_value("accel", _player_power_float("accel") * super_speed_walk_mult)
+		POWER_SUPER_KICK:
+			_set_player_power_value("kick_min_power", _player_power_float("kick_min_power") * super_kick_power_mult)
+			_set_player_power_value("kick_max_power", _player_power_float("kick_max_power") * super_kick_power_mult)
+			_set_player_power_value("kick_lift", _player_power_float("kick_lift") * super_kick_lift_mult)
+
+	_show_status(display_name)
+	_update_power_hud()
+
+
+func _setup_penalty_power() -> void:
+	if _ball == null or _player == null:
+		return
+
+	_rules_locked = true
+	_penalty_waiting_for_kick = false
+	_penalty_ball_released = false
+	_reset_match_state_for_restart()
+	_stop_ball_motion(true)
+
+	var ball_pos := Vector3(right_goal_line_x - 11.0, kickoff_ball_position.y, 0.0)
+	var player_pos := ball_pos + Vector3(-2.35, -kickoff_ball_position.y, 0.0)
+	_set_player_transform(_player, player_pos, Vector3(right_goal_line_x, 0.0, 0.0))
+	_reset_ball(ball_pos)
+	_stop_ball_motion(true)
+	_position_players_for_penalty(ball_pos)
+	if _snd_whistle:
+		_snd_whistle.play()
+	_show_status("PENALTI - K PARA COBRAR")
+
+	await get_tree().create_timer(0.45).timeout
+	_penalty_waiting_for_kick = true
+	_penalty_ball_released = false
+	_rules_locked = true
+
+
+func _update_penalty_wait_for_kick() -> void:
+	if not _penalty_waiting_for_kick:
+		return
+
+	_rules_locked = true
+	if Input.is_action_pressed("kick") and not _penalty_ball_released:
+		_stop_ball_motion(false)
+		_penalty_ball_released = true
+
+	if not _penalty_ball_released or not Input.is_action_just_released("kick"):
+		return
+
+	_penalty_waiting_for_kick = false
+	_penalty_ball_released = false
+	_rules_locked = false
+	_active_power_key = ""
+	_active_power_name = ""
+	_active_power_timer = 0.0
+	_show_status("")
+	_update_power_hud()
+
+
+func _position_players_for_penalty(ball_pos: Vector3) -> void:
+	if _red_defender:
+		_red_defender.global_position = Vector3(right_goal_line_x - keeper_line_offset, keeper_ground_y, 0.0)
+		_face_node_at(_red_defender, ball_pos)
+		_play_ai_anim(_red_defender, &"Idle", true)
+	if _yellow_keeper:
+		_yellow_keeper.global_position = Vector3(left_goal_line_x + keeper_line_offset, keeper_ground_y, 0.0)
+		_play_ai_anim(_yellow_keeper, &"Idle", true)
+
+	var yellow_positions := {
+		_yellow_defender: Vector3(ball_pos.x - 9.0, 0.0, -8.0),
+		_yellow_mid_left: Vector3(ball_pos.x - 13.0, 0.0, -15.0),
+		_yellow_mid_right: Vector3(ball_pos.x - 13.0, 0.0, 15.0),
+	}
+	for player_node in yellow_positions:
+		if player_node == null:
+			continue
+		player_node.global_position = yellow_positions[player_node]
+		_face_node_at(player_node, ball_pos)
+		_play_ai_anim(player_node, &"Idle", true)
+
+	var red_positions := {
+		_red_mid_left: Vector3(ball_pos.x - 6.0, 0.0, -16.0),
+		_red_mid_right: Vector3(ball_pos.x - 6.0, 0.0, 16.0),
+		_red_attacker: Vector3(ball_pos.x - 11.0, 0.0, 0.0),
+		_red_centerback: Vector3(ball_pos.x - 3.0, 0.0, 9.0),
+	}
+	for player_node in red_positions:
+		if player_node == null:
+			continue
+		player_node.global_position = red_positions[player_node]
+		_face_node_at(player_node, ball_pos)
+		_play_ai_anim(player_node, &"Idle", true)
+
+
+func _restore_player_power_defaults() -> void:
+	if _player == null:
+		return
+	for property_name in _player_power_base.keys():
+		_player.set(String(property_name), _player_power_base[property_name])
+
+
+func _player_power_float(property_name: String) -> float:
+	return float(_player_power_base.get(property_name, _player.get(property_name) if _player else 0.0))
+
+
+func _set_player_power_value(property_name: String, value: float) -> void:
+	if _player == null:
+		return
+	_player.set(property_name, value)
+
+
+func _respawn_star() -> void:
+	if _star == null:
+		return
+	_place_star_randomly()
+	_star_available = true
+	_star_visible_timer = star_visible_time
+	_set_star_visible(true)
+
+
+func _prepare_star_spawn_cycle() -> void:
+	_star_available = false
+	_star_visible_timer = 0.0
+	_schedule_next_star_spawn(1.0)
+	_set_star_visible(false)
+
+
+func _hide_star_until_next_spawn() -> void:
+	_star_available = false
+	_star_visible_timer = 0.0
+	_schedule_next_star_spawn()
+	_set_star_visible(false)
+
+
+func _schedule_next_star_spawn(fixed_delay: float = -1.0) -> void:
+	if fixed_delay >= 0.0:
+		_star_spawn_timer = fixed_delay
+		return
+	var min_delay := maxf(star_spawn_interval_min, 0.1)
+	var max_delay := maxf(star_spawn_interval_max, min_delay)
+	_star_spawn_timer = _rng.randf_range(min_delay, max_delay)
+
+
+func _place_star_randomly() -> void:
+	if _star == null:
+		return
+
+	var chosen := _star.global_position
+	var x_margin := minf(star_field_margin, (right_goal_line_x - left_goal_line_x) * 0.45)
+	var z_margin := minf(star_field_margin, touchline_z * 0.45)
+	for _attempt in range(8):
+		var candidate := Vector3(
+			_rng.randf_range(left_goal_line_x + x_margin, right_goal_line_x - x_margin),
+			star_height,
+			_rng.randf_range(-touchline_z + z_margin, touchline_z - z_margin)
+		)
+		if _player != null and _ground_distance(candidate, _player_pickup_position()) < 8.0:
+			continue
+		if _ball != null and _ground_distance(candidate, _ball.global_position) < 6.0:
+			continue
+		chosen = candidate
+		break
+	_star.global_position = chosen
+
+
+func _distance_to_star_from_player() -> float:
+	if _star == null or _player == null:
+		return INF
+	return _ground_distance(_player_pickup_position(), _star.global_position)
+
+
+func _player_pickup_position() -> Vector3:
+	if _player == null:
+		return Vector3.ZERO
+
+	var best := _player.global_position
+	var model := _player.get_node_or_null("Model") as Node3D
+	if model != null:
+		best = model.global_position
+
+	var body_shape := _player.get_node_or_null("CollisionShape3D") as CollisionShape3D
+	if body_shape != null:
+		var body_pos := body_shape.global_position
+		best.x = (best.x + body_pos.x) * 0.5
+		best.z = (best.z + body_pos.z) * 0.5
+
+	best.y = 0.0
+	return best
+
+
+func _set_star_visible(is_visible: bool) -> void:
+	if _star == null:
+		return
+	_star.visible = is_visible
+	_star.process_mode = Node.PROCESS_MODE_INHERIT if is_visible else Node.PROCESS_MODE_DISABLED
 
 
 func _check_ball_rules() -> void:
@@ -350,17 +757,18 @@ func _register_keeper_restart(ball_pos: Vector3) -> void:
 
 
 func _get_yellow_restart_position(ball_pos: Vector3) -> Vector3:
+	var clamped_z := clampf(ball_pos.z, -touchline_z + throw_in_inset, touchline_z - right_throw_in_inset)
 	var restart := Vector3(
 		clampf(ball_pos.x, left_goal_line_x + corner_inset, right_goal_line_x - corner_inset),
 		kickoff_ball_position.y,
-		clampf(ball_pos.z, -touchline_z + throw_in_inset, touchline_z - throw_in_inset)
+		clamped_z
 	)
 
 	if absf(ball_pos.z) >= touchline_z - boundary_restart_margin:
 		var side_z := signf(ball_pos.z)
 		if side_z == 0.0:
 			side_z = 1.0
-		restart.z = side_z * (touchline_z - throw_in_inset)
+		restart.z = side_z * (touchline_z - _throw_in_inset_for_side(side_z))
 		return restart
 
 	var side_x := signf(ball_pos.x)
@@ -372,6 +780,10 @@ func _get_yellow_restart_position(ball_pos: Vector3) -> Vector3:
 		end_side_z = 1.0
 	restart.z = end_side_z * minf(absf(restart.z), touchline_z - corner_inset)
 	return restart
+
+
+func _throw_in_inset_for_side(side_z: float) -> float:
+	return right_throw_in_inset if side_z > 0.0 else throw_in_inset
 
 
 func _select_yellow_restart_kicker(restart_pos: Vector3) -> Node3D:
@@ -399,11 +811,15 @@ func _reset_match_state_for_restart() -> void:
 	_red_tackle_cooldowns.clear()
 	_red_pass_cooldown = 0.0
 	_red_shot_cooldown = 0.0
+	_player_counter_tackle_timer = 0.0
 	_keeper_action_cd.clear()
 	_ball_holder = null
 	_hold_target = null
 	_hold_timer = 0.0
 	_hold_throw_started = false
+	_hold_clearance = false
+	_penalty_waiting_for_kick = false
+	_penalty_ball_released = false
 
 
 func _position_players_for_yellow_restart(restart_pos: Vector3, kicker: Node3D) -> void:
@@ -509,6 +925,7 @@ func _place_ball_in_keeper_hands(keeper: Node3D, line_x: float) -> void:
 	_hold_line_x = line_x
 	_hold_target = _player if keeper == _yellow_keeper else _red_attacker
 	_hold_throw_started = false
+	_hold_clearance = false
 	_ball.freeze = true
 	_ball.linear_velocity = Vector3.ZERO
 	_ball.angular_velocity = Vector3.ZERO
@@ -558,6 +975,9 @@ func _reset_ball(position: Vector3) -> void:
 	_hold_target = null
 	_hold_timer = 0.0
 	_hold_throw_started = false
+	_hold_clearance = false
+	_penalty_waiting_for_kick = false
+	_penalty_ball_released = false
 	_ball.freeze = true
 	_ball.global_position = position
 	_ball.global_rotation = Vector3.ZERO
@@ -768,7 +1188,8 @@ func _update_match_ai(delta: float) -> void:
 	_yellow_restart_grace_timer = maxf(_yellow_restart_grace_timer - delta, 0.0)
 
 	if _ball_holder != null:
-		_update_players_for_keeper_throw(delta)
+		if not _hold_clearance:
+			_update_players_for_keeper_throw(delta)
 		_update_goalkeeper(_yellow_keeper, left_goal_line_x + keeper_line_offset, delta)
 		_update_goalkeeper(_red_defender, right_goal_line_x - keeper_line_offset, delta)
 		return
@@ -802,7 +1223,6 @@ func _update_yellow_defense(delta: float) -> void:
 	var ball_pos := _ball_ground_position()
 	var red_carrier := _get_red_ball_carrier()
 	var red_has_ball := red_carrier != null
-	var brazil_carrier := _get_brazil_ball_carrier()
 	var player_controls := _player_controls_ball()
 	var closest_yellow := _elect_presser("yellow", [_yellow_defender, _yellow_mid_left, _yellow_mid_right], delta)
 
@@ -810,12 +1230,6 @@ func _update_yellow_defense(delta: float) -> void:
 		var slot := _yellow_defense[index]
 		var player_node := slot["node"] as Node3D
 		if player_node == null:
-			continue
-
-		if _update_ai_think_kick(player_node, delta, yellow_pressure_speed):
-			continue
-		if not _player_is_close_to_ball_for_yellow_pass() and not player_controls and not red_has_ball and brazil_carrier == player_node and _start_ai_think_kick(player_node, _player, "yellow", yellow_think_kick_power):
-			_update_ai_think_kick(player_node, delta, yellow_pressure_speed)
 			continue
 
 		var home := slot["home"] as Vector3
@@ -836,17 +1250,14 @@ func _update_yellow_defense(delta: float) -> void:
 		if red_has_ball:
 			var carrier_pos := red_carrier.global_position
 			carrier_pos.y = 0.0
-			var target := carrier_pos
-			if player_node != closest_yellow:
-				var cover_z := clampf(carrier_pos.z + (index - 1) * 3.0, -18.0, 18.0)
-				target = _midfielder_block_target(home, Vector3(carrier_pos.x + 2.5 + index * 0.8, 0.0, cover_z), lane_side)
+			var target := _yellow_surround_target(home, carrier_pos, index, lane_side, player_node == closest_yellow)
 			target.x = minf(target.x, home.x + 11.0)
 			target.z = clampf(target.z, home.z - 11.0, home.z + 11.0)
 			_move_ai_player(player_node, target, yellow_pressure_speed, delta)
-			_try_yellow_tackle(player_node, red_carrier, delta)
 		else:
 			if player_node == closest_yellow:
-				_move_ai_player(player_node, ball_pos, yellow_pressure_speed, delta)
+				var contain_target := _yellow_surround_target(home, ball_pos, index, lane_side, true)
+				_move_ai_player(player_node, contain_target, yellow_pressure_speed * 0.9, delta)
 			else:
 				var support := _midfielder_block_target(home, ball_pos, lane_side)
 				support.z += float(index - 1) * 4.0
@@ -988,12 +1399,15 @@ func _update_goalkeeper(keeper: Node3D, line_x: float, delta: float) -> void:
 		var hvel := Vector3(_ball.linear_velocity.x, 0.0, _ball.linear_velocity.z)
 		var toward_goal := _ball.linear_velocity.x * signf(line_x) > 1.0
 		var ball_slow := hvel.length() < keeper_shot_speed
+		var ball_in_small_area := _is_inside_keeper_small_area(ball_pos, line_x)
 
-		if dist_ball <= keeper_catch_distance and (toward_goal or ball_slow):
+		if ball_in_small_area:
+			_keeper_catch(keeper, line_x, true)
+		elif dist_ball <= keeper_catch_distance and (toward_goal or ball_slow):
 			# Defesa: a bola chegou ao alcance vindo pro gol (ou parada perto) ->
 			# agarra e parte pro arremesso. A condição evita re-pegar a bola que
 			# o próprio goleiro acabou de arremessar (que sai rápida e pro campo).
-			_keeper_catch(keeper, line_x)
+			_keeper_catch(keeper, line_x, false)
 		elif cd <= 0.0 and dist_ball <= keeper_dive_distance and toward_goal and hvel.length() >= keeper_shot_speed:
 			# Chute indo pro canto: mergulha pro lado da bola (o colisor maior ajuda a pegar).
 			var ball_side := signf(ball_pos.z - next_pos.z)
@@ -1010,14 +1424,15 @@ func _update_goalkeeper(keeper: Node3D, line_x: float, delta: float) -> void:
 ## Defesa: o goleiro pega a bola. Ela é congelada e passa a ser segurada na mão;
 ## dispara a animação de arremesso e define o alvo do passe (player p/ o amarelo,
 ## atacante p/ o vermelho).
-func _keeper_catch(keeper: Node3D, line_x: float) -> void:
+func _keeper_catch(keeper: Node3D, line_x: float, clearance: bool = false) -> void:
 	if _ball == null:
 		return
 	_ball_holder = keeper
-	_hold_timer = keeper_throw_windup
+	_hold_timer = keeper_clearance_windup if clearance else keeper_throw_windup
 	_hold_line_x = line_x
 	_hold_target = _player
 	_hold_throw_started = false
+	_hold_clearance = clearance
 	_ball.freeze = true
 	_ball.linear_velocity = Vector3.ZERO
 	_ball.angular_velocity = Vector3.ZERO
@@ -1034,14 +1449,25 @@ func _update_keeper_hold(keeper: Node3D, delta: float) -> void:
 		_ball.linear_velocity = Vector3.ZERO
 		_ball.angular_velocity = Vector3.ZERO
 
-	if not _keeper_area_clear_for_throw():
+	if _hold_clearance:
+		var clearance_spot := _keeper_clearance_spot(keeper)
+		var previous_pos := keeper.global_position
+		keeper.global_position = keeper.global_position.move_toward(clearance_spot, keeper_clear_area_speed * delta)
+		var moved_distance := _ground_distance(previous_pos, keeper.global_position)
+		var ground_speed := moved_distance / delta if delta > 0.0 else 0.0
+		_face_node_at(keeper, clearance_spot + Vector3((1.0 if _hold_line_x < 0.0 else -1.0) * 10.0, 0.0, 0.0))
+		_set_ai_motion_anim(keeper, moved_distance > 0.01, ground_speed)
+		if _ground_distance(keeper.global_position, clearance_spot) > 0.15:
+			return
+
+	if not _hold_clearance and not _keeper_area_clear_for_throw():
 		_hold_timer = keeper_throw_windup
 		_set_ai_motion_anim(keeper, false)
 		return
 
 	if not _hold_throw_started:
 		_hold_throw_started = true
-		_hold_timer = keeper_throw_windup
+		_hold_timer = keeper_clearance_windup if _hold_clearance else keeper_throw_windup
 		_play_ai_anim(keeper, &"Throw", true)
 
 	_hold_timer -= delta
@@ -1058,7 +1484,10 @@ func _keeper_release(keeper: Node3D) -> void:
 
 	var from := _ball.global_position
 	var to: Vector3
-	if _hold_target != null and is_instance_valid(_hold_target):
+	if _hold_clearance:
+		var out_dir := 1.0 if _hold_line_x < 0.0 else -1.0
+		to = keeper.global_position + Vector3(out_dir * 34.0, 0.55, clampf(-keeper.global_position.z * 0.35, -8.0, 8.0))
+	elif _hold_target != null and is_instance_valid(_hold_target):
 		to = _hold_target.global_position + Vector3(0.0, 0.55, 0.0)
 		var tvel: Variant = _hold_target.get("velocity")
 		if tvel is Vector3:
@@ -1072,6 +1501,8 @@ func _keeper_release(keeper: Node3D) -> void:
 		flat = Vector3(-signf(_hold_line_x), 0.0, 0.0)
 	var aim := flat.normalized()
 	var power := clampf(flat.length() * 0.45, keeper_throw_min_power, keeper_throw_max_power)
+	if _hold_clearance:
+		power = keeper_clearance_power
 
 	_ball.freeze = false
 	_ball.sleeping = false
@@ -1084,7 +1515,17 @@ func _keeper_release(keeper: Node3D) -> void:
 	_ball_holder = null
 	_hold_target = null
 	_hold_throw_started = false
+	_hold_clearance = false
 	_keeper_action_cd[keeper.get_instance_id()] = keeper_action_cooldown
+
+
+func _keeper_clearance_spot(keeper: Node3D) -> Vector3:
+	var out_dir := 1.0 if _hold_line_x < 0.0 else -1.0
+	return Vector3(
+		_hold_line_x + out_dir * keeper_clearance_step_out,
+		keeper_ground_y,
+		clampf(keeper.global_position.z, -keeper_small_area_half_width + 1.0, keeper_small_area_half_width - 1.0)
+	)
 
 
 func _update_players_for_keeper_throw(delta: float) -> void:
@@ -1135,6 +1576,20 @@ func _is_inside_keeper_area(position: Vector3, margin: float = 0.0) -> bool:
 	if goal_sign < 0.0:
 		return position.x <= boundary_x
 	return position.x >= boundary_x
+
+
+func _is_inside_keeper_small_area(position: Vector3, line_x: float, margin: float = 0.0) -> bool:
+	var goal_sign := signf(line_x)
+	if goal_sign == 0.0:
+		goal_sign = -1.0
+
+	if absf(position.z) > keeper_small_area_half_width + margin:
+		return false
+
+	var depth := keeper_small_area_depth + margin
+	if goal_sign < 0.0:
+		return position.x <= left_goal_line_x + depth
+	return position.x >= right_goal_line_x - depth
 
 
 func _keeper_area_boundary_x(margin: float = 0.0) -> float:
@@ -1268,7 +1723,7 @@ func _get_brazil_ball_carrier() -> Node3D:
 	var best_distance := INF
 	var ball_pos := _ball_ground_position()
 
-	for player_node in [_player, _yellow_defender, _yellow_mid_left, _yellow_mid_right]:
+	for player_node in [_player]:
 		if player_node == null:
 			continue
 
@@ -1372,6 +1827,22 @@ func _yellow_contain_target(player_pos: Vector3, index: int, lane_side: float) -
 	away.y = 0.0
 	if away.length() < min_distance:
 		target = player_pos + away.normalized() * min_distance if away.length() > 0.01 else player_pos + goal_side * min_distance
+	target.x = clampf(target.x, left_goal_line_x + 7.0, right_goal_line_x - 7.0)
+	target.z = clampf(target.z, -touchline_z + 6.0, touchline_z - 6.0)
+	return target
+
+
+func _yellow_surround_target(home: Vector3, anchor: Vector3, index: int, lane_side: float, primary: bool) -> Vector3:
+	home.y = 0.0
+	anchor.y = 0.0
+	var side := lane_side
+	if side == 0.0:
+		side = -1.0 if index == 0 else 1.0
+
+	var back_distance := 3.0 if primary else 5.0 + float(index) * 0.65
+	var width := 1.6 if primary else 4.2 + absf(lane_side) * 1.8
+	var target := anchor + Vector3(back_distance, 0.0, side * width)
+	target = target.lerp(_midfielder_block_target(home, anchor, lane_side), 0.35)
 	target.x = clampf(target.x, left_goal_line_x + 7.0, right_goal_line_x - 7.0)
 	target.z = clampf(target.z, -touchline_z + 6.0, touchline_z - 6.0)
 	return target
@@ -1522,6 +1993,7 @@ func _start_ai_think_kick(player_node: Node3D, target_node: Node3D, team: String
 	var player_pos := player_node.global_position
 	player_pos.y = 0.0
 	var retreat_dir := Vector3(1.0 if team == "red" else -1.0, 0.0, 0.0)
+	var is_red_shot := team == "red" and target_node == null
 
 	var retreat_target := player_pos + retreat_dir.normalized() * ai_think_retreat_distance
 	retreat_target.x = clampf(retreat_target.x, left_goal_line_x + 6.0, right_goal_line_x - 6.0)
@@ -1531,8 +2003,8 @@ func _start_ai_think_kick(player_node: Node3D, target_node: Node3D, team: String
 		"team": team,
 		"target_node": target_node,
 		"power": power,
-		"phase": "retreat",
-		"timer": ai_think_retreat_time,
+		"phase": "turn" if is_red_shot else "retreat",
+		"timer": red_shot_turn_time if is_red_shot else ai_think_retreat_time,
 		"retreat_target": retreat_target,
 	}
 	return true
@@ -1589,7 +2061,7 @@ func _update_ai_think_kick(player_node: Node3D, delta: float, speed: float) -> b
 			if team == "red" and target_node == null:
 				_red_shot_cooldown = 1.6
 			_ai_kick_plans.erase(key)
-			_ai_think_cooldowns[key] = 1.15
+			_ai_think_cooldowns[key] = red_shot_think_cooldown if team == "red" and target_node == null else 1.15
 		else:
 			_ai_kick_plans[key] = plan
 		return true
@@ -1997,10 +2469,12 @@ func _reset_ai_for_restart() -> void:
 	_presser_claims.clear()
 	_ai_velocities.clear()
 	_keeper_action_cd.clear()
+	_player_counter_tackle_timer = 0.0
 	_ball_holder = null
 	_hold_target = null
 	_hold_timer = 0.0
 	_hold_throw_started = false
+	_hold_clearance = false
 	for slot in _yellow_defense:
 		var player_node := slot["node"] as Node3D
 		if player_node == null:
@@ -2097,6 +2571,9 @@ func _create_scoreboard() -> void:
 	_status_label.add_theme_constant_override("shadow_offset_y", 2)
 	_scoreboard.add_child(_status_label)
 
+	_create_power_hud(layer)
+	_create_roulette_hud(layer)
+
 	_transition_rect = ColorRect.new()
 	_transition_rect.name = "RestartFade"
 	_transition_rect.color = Color.BLACK
@@ -2105,6 +2582,94 @@ func _create_scoreboard() -> void:
 	_transition_rect.visible = false
 	_transition_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	layer.add_child(_transition_rect)
+
+
+func _create_power_hud(layer: CanvasLayer) -> void:
+	_power_panel = Control.new()
+	_power_panel.name = "PowerPanel"
+	_power_panel.anchor_left = 1.0
+	_power_panel.anchor_top = 0.0
+	_power_panel.anchor_right = 1.0
+	_power_panel.anchor_bottom = 0.0
+	_power_panel.offset_left = -260.0
+	_power_panel.offset_top = 16.0
+	_power_panel.offset_right = -16.0
+	_power_panel.offset_bottom = 78.0
+	_power_panel.visible = false
+	layer.add_child(_power_panel)
+
+	var background := ColorRect.new()
+	background.name = "Background"
+	background.color = Color(0.02, 0.03, 0.04, 0.76)
+	background.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_power_panel.add_child(background)
+
+	var title := Label.new()
+	title.text = "PODER"
+	title.position = Vector2(12.0, 5.0)
+	title.size = Vector2(220.0, 18.0)
+	title.add_theme_font_size_override("font_size", 12)
+	title.add_theme_color_override("font_color", Color(1.0, 0.86, 0.18))
+	_power_panel.add_child(title)
+
+	_power_name_label = Label.new()
+	_power_name_label.position = Vector2(12.0, 22.0)
+	_power_name_label.size = Vector2(170.0, 28.0)
+	_power_name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_power_name_label.add_theme_font_size_override("font_size", 18)
+	_power_name_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+	_power_panel.add_child(_power_name_label)
+
+	_power_timer_label = Label.new()
+	_power_timer_label.position = Vector2(184.0, 24.0)
+	_power_timer_label.size = Vector2(46.0, 24.0)
+	_power_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_power_timer_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_power_timer_label.add_theme_font_size_override("font_size", 18)
+	_power_timer_label.add_theme_color_override("font_color", Color(0.55, 0.92, 1.0))
+	_power_panel.add_child(_power_timer_label)
+
+
+func _create_roulette_hud(layer: CanvasLayer) -> void:
+	_roulette_panel = Control.new()
+	_roulette_panel.name = "PowerRoulette"
+	_roulette_panel.anchor_left = 0.5
+	_roulette_panel.anchor_top = 0.0
+	_roulette_panel.anchor_right = 0.5
+	_roulette_panel.anchor_bottom = 0.0
+	_roulette_panel.offset_left = -180.0
+	_roulette_panel.offset_top = 82.0
+	_roulette_panel.offset_right = 180.0
+	_roulette_panel.offset_bottom = 138.0
+	_roulette_panel.visible = false
+	layer.add_child(_roulette_panel)
+
+	var background := ColorRect.new()
+	background.name = "Background"
+	background.color = Color(0.0, 0.0, 0.0, 0.72)
+	background.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_roulette_panel.add_child(background)
+
+	var title := Label.new()
+	title.text = "ROLETA DA ESTRELA"
+	title.position = Vector2(0.0, 4.0)
+	title.size = Vector2(360.0, 18.0)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 12)
+	title.add_theme_color_override("font_color", Color(1.0, 0.86, 0.18))
+	_roulette_panel.add_child(title)
+
+	_roulette_label = Label.new()
+	_roulette_label.position = Vector2(0.0, 20.0)
+	_roulette_label.size = Vector2(360.0, 30.0)
+	_roulette_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_roulette_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_roulette_label.add_theme_font_size_override("font_size", 22)
+	_roulette_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+	_roulette_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.9))
+	_roulette_label.add_theme_constant_override("shadow_offset_x", 2)
+	_roulette_label.add_theme_constant_override("shadow_offset_y", 2)
+	_roulette_panel.add_child(_roulette_label)
 
 
 func _create_score_number_label(position: Vector2) -> Label:
@@ -2131,6 +2696,28 @@ func _update_scoreboard() -> void:
 func _show_status(text: String) -> void:
 	if _status_label:
 		_status_label.text = text
+
+
+func _show_roulette(is_visible: bool, text: String = "") -> void:
+	if _roulette_panel:
+		_roulette_panel.visible = is_visible
+	if _roulette_label:
+		_roulette_label.text = text
+
+
+func _update_power_hud() -> void:
+	if _power_panel == null:
+		return
+
+	var has_power := _active_power_key != "" and _active_power_timer > 0.0
+	_power_panel.visible = has_power
+	if not has_power:
+		return
+
+	if _power_name_label:
+		_power_name_label.text = _active_power_name
+	if _power_timer_label:
+		_power_timer_label.text = "%ds" % ceili(_active_power_timer)
 
 
 func _fade_match(to_black: bool) -> void:
